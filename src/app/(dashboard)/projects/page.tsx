@@ -2,59 +2,65 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { ProjectsClient } from "./projects-client";
 
 export default async function ProjectsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const projects = await prisma.project.findMany({
-    where: { memberships: { some: { userId: session.user.id } } },
-    include: {
-      org: { select: { name: true } },
-      _count: { select: { memberships: true } },
+  const orgMembership = await prisma.orgMembership.findFirst({
+    where: {
+      userId: session.user.id,
+      role: { in: ["ADMIN_ORG", "GESTOR_PROJETO"] },
     },
-    orderBy: { updatedAt: "desc" },
+    select: { role: true },
   });
+
+  const canCreate = !!orgMembership;
+
+  const orgMemberOf = await prisma.orgMembership.findFirst({
+    where: { userId: session.user.id },
+    select: { orgId: true },
+  });
+
+  const projects = orgMemberOf
+    ? await prisma.project.findMany({
+        where: { orgId: orgMemberOf.orgId },
+        include: {
+          org: { select: { name: true } },
+          _count: { select: { memberships: true, issues: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+      })
+    : [];
 
   return (
     <main className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Projetos</h1>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {projects.map((project) => (
+        {canCreate && (
           <Link
-            key={project.id}
-            href={`/projects/${project.id}`}
-            className="block bg-white rounded-lg border p-4 hover:shadow-md transition-shadow"
+            href="/projects/new"
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-semibold text-gray-900">{project.name}</p>
-                <p className="text-sm text-gray-500">{project.slug}</p>
-              </div>
-              <span
-                className={`text-xs px-2 py-1 rounded-full ${
-                  project.status === "ATIVO"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {project.status}
-              </span>
-            </div>
-            <p className="mt-2 text-sm text-gray-600">{project.org.name}</p>
-            <p className="mt-1 text-xs text-gray-400">
-              {project._count.memberships} membros
-            </p>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Novo Projeto
           </Link>
-        ))}
-        {projects.length === 0 && (
-          <p className="text-gray-500 col-span-full text-center py-8">
-            Nenhum projeto encontrado.
-          </p>
         )}
       </div>
+      <ProjectsClient projects={projects} />
     </main>
   );
 }
