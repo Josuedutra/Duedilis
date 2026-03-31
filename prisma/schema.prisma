@@ -107,6 +107,7 @@ model Organization {
   stamps        Stamp[]
   documents     Document[]
   uploadBatches UploadBatch[]
+  invites       OrgInvite[]
 }
 
 model OrgMembership {
@@ -123,6 +124,24 @@ model OrgMembership {
   @@unique([userId, orgId])
   @@index([orgId])
   @@index([userId])
+}
+
+model OrgInvite {
+  id         String    @id @default(cuid())
+  orgId      String
+  email      String
+  role       OrgRole   @default(OBSERVADOR)
+  token      String    @unique @default(cuid())
+  invitedBy  String    // userId de quem criou o convite
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, email])
+  @@index([orgId])
+  @@index([token])
 }
 
 model Project {
