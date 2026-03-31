@@ -1,10 +1,21 @@
-import { signIn } from "@/lib/auth";
+import { signIn, auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ registered?: string; error?: string }>;
+}) {
   const session = await auth();
-  if (session) redirect("/");
+  if (session) redirect("/dashboard");
+
+  const params = await searchParams;
+  const successMsg = params.registered
+    ? "Conta criada com sucesso! Faça login para continuar."
+    : null;
+  const errorMsg = params.error
+    ? "Email ou password incorretos. Tente novamente."
+    : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -15,13 +26,23 @@ export default async function LoginPage() {
             Plataforma de Fiscalização e Governança de Obra
           </p>
         </div>
+        {successMsg && (
+          <div className="rounded-md bg-green-50 border border-green-200 p-3">
+            <p className="text-sm text-green-700">{successMsg}</p>
+          </div>
+        )}
+        {errorMsg && (
+          <div className="rounded-md bg-red-50 border border-red-200 p-3">
+            <p className="text-sm text-red-700">{errorMsg}</p>
+          </div>
+        )}
         <form
           action={async (formData: FormData) => {
             "use server";
             await signIn("credentials", {
               email: formData.get("email"),
               password: formData.get("password"),
-              redirectTo: "/",
+              redirectTo: "/dashboard",
             });
           }}
           className="space-y-4"
