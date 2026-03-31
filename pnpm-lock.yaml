@@ -5,12 +5,18 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@auth/prisma-adapter':
+    specifier: ^2.11.1
+    version: 2.11.1(@prisma/client@7.6.0)
   '@prisma/adapter-pg':
     specifier: ^7.6.0
     version: 7.6.0
   '@prisma/client':
     specifier: ^7.6.0
     version: 7.6.0(prisma@7.6.0)(typescript@5.9.3)
+  bcryptjs:
+    specifier: ^3.0.3
+    version: 3.0.3
   clsx:
     specifier: ^2.1.1
     version: 2.1.1
@@ -35,11 +41,17 @@ dependencies:
   tailwind-merge:
     specifier: ^3.5.0
     version: 3.5.0
+  zod:
+    specifier: ^4.3.6
+    version: 4.3.6
 
 devDependencies:
   '@tailwindcss/postcss':
     specifier: ^4
     version: 4.2.2
+  '@types/bcryptjs':
+    specifier: ^3.0.0
+    version: 3.0.0
   '@types/node':
     specifier: ^20
     version: 20.19.37
@@ -94,6 +106,40 @@ packages:
       oauth4webapi: 3.8.5
       preact: 10.24.3
       preact-render-to-string: 6.5.11(preact@10.24.3)
+    dev: false
+
+  /@auth/core@0.41.1:
+    resolution: {integrity: sha512-t9cJ2zNYAdWMacGRMT6+r4xr1uybIdmYa49calBPeTqwgAFPV/88ac9TEvCR85pvATiSPt8VaNf+Gt24JIT/uw==}
+    peerDependencies:
+      '@simplewebauthn/browser': ^9.0.1
+      '@simplewebauthn/server': ^9.0.2
+      nodemailer: ^7.0.7
+    peerDependenciesMeta:
+      '@simplewebauthn/browser':
+        optional: true
+      '@simplewebauthn/server':
+        optional: true
+      nodemailer:
+        optional: true
+    dependencies:
+      '@panva/hkdf': 1.2.1
+      jose: 6.2.2
+      oauth4webapi: 3.8.5
+      preact: 10.24.3
+      preact-render-to-string: 6.5.11(preact@10.24.3)
+    dev: false
+
+  /@auth/prisma-adapter@2.11.1(@prisma/client@7.6.0):
+    resolution: {integrity: sha512-Ke7DXP0Fy0Mlmjz/ZJLXwQash2UkA4621xCM0rMtEczr1kppLc/njCbUkHkIQ/PnmILjqSPEKeTjDPsYruvkug==}
+    peerDependencies:
+      '@prisma/client': '>=2.26.0 || >=3 || >=4 || >=5 || >=6'
+    dependencies:
+      '@auth/core': 0.41.1
+      '@prisma/client': 7.6.0(prisma@7.6.0)(typescript@5.9.3)
+    transitivePeerDependencies:
+      - '@simplewebauthn/browser'
+      - '@simplewebauthn/server'
+      - nodemailer
     dev: false
 
   /@babel/code-frame@7.29.0:
@@ -1220,6 +1266,13 @@ packages:
     dev: true
     optional: true
 
+  /@types/bcryptjs@3.0.0:
+    resolution: {integrity: sha512-WRZOuCuaz8UcZZE4R5HXTco2goQSI2XxjGY3hbM/xDvwmqFWd4ivooImsMx65OKM6CtNKbnZ5YL+YwAwK7c1dg==}
+    deprecated: This is a stub types definition. bcryptjs provides its own type definitions, so you do not need this installed.
+    dependencies:
+      bcryptjs: 3.0.3
+    dev: true
+
   /@types/estree@1.0.8:
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
     dev: true
@@ -1732,6 +1785,10 @@ packages:
   /baseline-browser-mapping@2.10.13:
     resolution: {integrity: sha512-BL2sTuHOdy0YT1lYieUxTw/QMtPBC3pmlJC6xk8BBYVv6vcw3SGdKemQ+Xsx9ik2F/lYDO9tqsFQH1r9PFuHKw==}
     engines: {node: '>=6.0.0'}
+    hasBin: true
+
+  /bcryptjs@3.0.3:
+    resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
     hasBin: true
 
   /better-result@2.7.0:
@@ -4524,4 +4581,3 @@ packages:
 
   /zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
-    dev: true
