@@ -79,7 +79,6 @@ model User {
   // Activity
   createdIssues  Issue[]        @relation("IssueReporter")
   assignedIssues Issue[]        @relation("IssueAssignee")
-  closedIssues   Issue[]        @relation("IssueCloser")
   issueComments  IssueComment[]
   issueStamps    IssueStamp[]
   issueClosure   IssueClosure[]
