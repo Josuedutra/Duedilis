@@ -6,12 +6,12 @@ export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const projectCount = await prisma.project.count({
-    where: { members: { some: { userId: session.user.id } } },
+  const projectCount = await prisma.projectMembership.count({
+    where: { userId: session.user.id },
   });
 
-  const orgCount = await prisma.membership.count({
-    where: { userId: session.user.id, status: "ACTIVE" },
+  const orgCount = await prisma.orgMembership.count({
+    where: { userId: session.user.id },
   });
 
   return (
