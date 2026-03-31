@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { ProjectRole } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -204,20 +205,15 @@ export async function addProjectMember({
     return { error: "O utilizador não é membro desta organização." };
   }
 
-  const validRoles = [
-    "ADMIN_ORG",
-    "GESTOR_PROJETO",
-    "FISCAL",
-    "TECNICO",
-    "AUDITOR",
-    "OBSERVADOR",
-  ];
+  const validRoles: string[] = Object.values(ProjectRole);
   if (!validRoles.includes(role)) return { error: "Role inválido." };
+
+  const projectRole = role as ProjectRole;
 
   await prisma.projectMembership.upsert({
     where: { userId_projectId: { userId, projectId } },
-    create: { userId, projectId, orgId: project.orgId, role },
-    update: { role },
+    create: { userId, projectId, orgId: project.orgId, role: projectRole },
+    update: { role: projectRole },
   });
 
   revalidatePath(`/projects/${projectId}`);
