@@ -8,10 +8,10 @@ export default async function ProjectsPage() {
   if (!session?.user?.id) redirect("/login");
 
   const projects = await prisma.project.findMany({
-    where: { members: { some: { userId: session.user.id } } },
+    where: { memberships: { some: { userId: session.user.id } } },
     include: {
-      organization: { select: { name: true } },
-      _count: { select: { members: true } },
+      org: { select: { name: true } },
+      _count: { select: { memberships: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -31,11 +31,11 @@ export default async function ProjectsPage() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-semibold text-gray-900">{project.name}</p>
-                <p className="text-sm text-gray-500">{project.code}</p>
+                <p className="text-sm text-gray-500">{project.slug}</p>
               </div>
               <span
                 className={`text-xs px-2 py-1 rounded-full ${
-                  project.status === "ACTIVE"
+                  project.status === "ATIVO"
                     ? "bg-green-100 text-green-800"
                     : "bg-gray-100 text-gray-600"
                 }`}
@@ -43,11 +43,9 @@ export default async function ProjectsPage() {
                 {project.status}
               </span>
             </div>
-            <p className="mt-2 text-sm text-gray-600">
-              {project.organization.name}
-            </p>
+            <p className="mt-2 text-sm text-gray-600">{project.org.name}</p>
             <p className="mt-1 text-xs text-gray-400">
-              {project._count.members} membros
+              {project._count.memberships} membros
             </p>
           </Link>
         ))}

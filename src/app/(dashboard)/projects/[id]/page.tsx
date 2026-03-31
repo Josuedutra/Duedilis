@@ -15,11 +15,11 @@ export default async function ProjectPage({ params }: Props) {
   const project = await prisma.project.findFirst({
     where: {
       id,
-      members: { some: { userId: session.user.id } },
+      memberships: { some: { userId: session.user.id } },
     },
     include: {
-      organization: { select: { name: true } },
-      members: {
+      org: { select: { name: true } },
+      memberships: {
         include: { user: { select: { id: true, name: true, email: true } } },
       },
     },
@@ -30,9 +30,9 @@ export default async function ProjectPage({ params }: Props) {
   return (
     <main className="p-6">
       <div className="mb-6">
-        <p className="text-sm text-gray-500">{project.organization.name}</p>
+        <p className="text-sm text-gray-500">{project.org.name}</p>
         <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
-        <p className="text-sm text-gray-500">Código: {project.code}</p>
+        <p className="text-sm text-gray-500">Slug: {project.slug}</p>
       </div>
       {project.description && (
         <p className="text-gray-600 mb-6">{project.description}</p>
@@ -40,7 +40,7 @@ export default async function ProjectPage({ params }: Props) {
       <div>
         <h2 className="text-lg font-semibold mb-3">Membros</h2>
         <div className="space-y-2">
-          {project.members.map((m) => (
+          {project.memberships.map((m) => (
             <div
               key={m.id}
               className="flex items-center justify-between bg-white rounded border px-4 py-2"

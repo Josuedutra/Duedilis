@@ -10,13 +10,13 @@ export async function GET() {
 
   const projects = await prisma.project.findMany({
     where: {
-      members: {
+      memberships: {
         some: { userId: session.user.id },
       },
     },
     include: {
-      organization: { select: { id: true, name: true, slug: true } },
-      _count: { select: { members: true } },
+      org: { select: { id: true, name: true, slug: true } },
+      _count: { select: { memberships: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -31,27 +31,19 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const {
-    organizationId,
-    name,
-    code,
-    description,
-    location,
-    startDate,
-    endDate,
-  } = body;
+  const { orgId, name, slug, description, address, startDate, endDate } = body;
 
-  if (!organizationId || !name || !code) {
+  if (!orgId || !name || !slug) {
     return NextResponse.json(
-      { error: "organizationId, name and code are required" },
+      { error: "orgId, name and slug are required" },
       { status: 400 },
     );
   }
 
   // Verify the user is an ADMIN_ORG or GESTOR_PROJETO in this org
-  const membership = await prisma.membership.findUnique({
+  const membership = await prisma.orgMembership.findUnique({
     where: {
-      organizationId_userId: { organizationId, userId: session.user.id },
+      userId_orgId: { userId: session.user.id, orgId },
     },
   });
 
@@ -64,20 +56,20 @@ export async function POST(request: Request) {
 
   const project = await prisma.project.create({
     data: {
-      organizationId,
+      orgId,
       name,
-      code,
+      slug,
       description,
-      location,
+      address,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
-      members: {
-        create: { userId: session.user.id, role: "GESTOR_PROJETO" },
+      memberships: {
+        create: { userId: session.user.id, orgId, role: "GESTOR_PROJETO" },
       },
     },
     include: {
-      organization: { select: { id: true, name: true } },
-      _count: { select: { members: true } },
+      org: { select: { id: true, name: true } },
+      _count: { select: { memberships: true } },
     },
   });
 
