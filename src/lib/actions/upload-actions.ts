@@ -87,6 +87,33 @@ export async function presignUpload(input: {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado.");
 
+  // ACL check: verify user is org member
+  const membership = await prisma.orgMembership.findUnique({
+    where: { userId_orgId: { userId: session.user.id!, orgId: input.orgId } },
+  });
+  if (!membership) {
+    throw new Error("403 — Não é membro desta organização. Acesso proibido.");
+  }
+
+  // ACL check: ADMIN_ORG bypasses folder ACL
+  const bypassRoles: string[] = ["ADMIN_ORG", "GESTOR_PROJETO"];
+  if (!bypassRoles.includes(membership.role)) {
+    const folderAcl = await prisma.folderAcl.findFirst({
+      where: {
+        folderId: input.folderId,
+        OR: [
+          { userId: session.user.id! },
+          { role: membership.role as unknown as never },
+        ],
+      },
+    });
+    if (!folderAcl || !folderAcl.permissions.includes("WRITE")) {
+      throw new Error(
+        "403 — Sem permissão WRITE nesta pasta. Acesso proibido.",
+      );
+    }
+  }
+
   validateFile(input.fileName, input.mimeType, input.fileSizeBytes);
 
   // Use a timestamp-based docId placeholder for the key (actual Document created on confirm)
@@ -176,7 +203,7 @@ export async function createIndividualDocument(input: {
         input.orgId,
         input.projectId,
         input.folderId,
-        "individual",
+        `tmp-${crypto.randomUUID()}`,
         input.fileName,
       ),
       fileHash: input.fileHash,
