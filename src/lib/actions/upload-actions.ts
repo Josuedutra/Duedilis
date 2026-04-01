@@ -279,6 +279,7 @@ export async function createUploadBatch(input: {
   const createdDocIds: string[] = [];
 
   for (const file of input.files) {
+    const tmpDocId = `tmp-${crypto.randomUUID()}`;
     const doc = await prisma.document.create({
       data: {
         orgId: input.orgId,
@@ -289,7 +290,7 @@ export async function createUploadBatch(input: {
           input.orgId,
           input.projectId,
           input.folderId,
-          batch.id,
+          tmpDocId,
           file.fileName,
         ),
         fileHash: file.fileHash,
@@ -308,7 +309,7 @@ export async function createUploadBatch(input: {
           input.orgId,
           input.projectId,
           input.folderId,
-          doc.id,
+          tmpDocId,
           file.fileName,
         ),
         mimeType: file.mimeType,
@@ -318,7 +319,7 @@ export async function createUploadBatch(input: {
     } catch {
       // R2 not configured — return placeholder URL
       presignedUrls.push(
-        `https://r2-pending.example.com/${input.orgId}/${batch.id}/${file.fileName}`,
+        `https://r2-pending.example.com/${input.orgId}/${batch.id}/${tmpDocId}/${file.fileName}`,
       );
     }
   }
