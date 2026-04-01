@@ -42,10 +42,11 @@ export async function verifyUploadHash(_input: {
   if (doc.fileHash !== _input.receivedHash) {
     throw new Error("hash inválido: SHA-256 mismatch.");
   }
-  return prisma.document.update({
+  const updated = await prisma.document.update({
     where: { id: _input.documentId },
     data: { status: "NORMALIZING" },
   });
+  return { id: updated.id, status: updated.status as string };
 }
 
 export async function createUploadBatch(_input: {
@@ -112,7 +113,7 @@ export async function createIndividualDocument(_input: {
 }): Promise<{ id: string; status: string; batchId: null }> {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado.");
-  return prisma.document.create({
+  const doc = await prisma.document.create({
     data: {
       orgId: _input.orgId,
       projectId: _input.projectId,
@@ -127,4 +128,5 @@ export async function createIndividualDocument(_input: {
       batchId: null,
     },
   });
+  return { id: doc.id, status: doc.status as string, batchId: null };
 }
