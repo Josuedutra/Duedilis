@@ -1,9 +1,11 @@
+"use server";
+
 /**
- * CDE actions — Sprint D2 stubs (E3 TDD)
- * Task: gov-1775041180765-0yiwrq
+ * CDE actions — Sprint D2
+ * Task: gov-1775041228837-pj6dba
  *
- * STUBS — shell mínimo para que os imports dos testes resolvam.
- * Lógica de negócio implementada na Etapa E4.
+ * Server actions: createCdeFolder, listCdeFolders, checkFolderPermission,
+ *                 createDocumentVersion, transitionDocumentStatus, listDocumentsByFolder
  */
 
 import { auth } from "@/lib/auth";
