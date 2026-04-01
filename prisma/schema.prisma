@@ -92,6 +92,15 @@ model User {
   submittedApprovals Approval[] @relation("ApprovalSubmitter")
   reviewedApprovals  Approval[] @relation("ApprovalReviewer")
   photos             Photo[]
+
+  // D3 relations
+  meetingsCreated       Meeting[]            @relation("MeetingCreator")
+  meetingParticipations MeetingParticipant[] @relation("MeetingParticipations")
+  minutesPublished      MeetingMinutes[]     @relation("MinutesPublisher")
+  actionItemsAssigned   ActionItem[]         @relation("ActionItemAssignee")
+  evidenceLinksCreated  EvidenceLink[]       @relation("EvidenceLinkCreator")
+  notifications         Notification[]       @relation("UserNotifications")
+  outboxMessages        NotificationOutbox[] @relation("OutboxRecipient")
 }
 
 // Organization = tenant root
@@ -104,17 +113,21 @@ model Organization {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  memberships   OrgMembership[]
-  projects      Project[]
-  cdeFolders    CdeFolder[]
-  issues        Issue[]
-  auditLogs     AuditLog[]
-  stamps        Stamp[]
-  documents     Document[]
-  uploadBatches UploadBatch[]
-  invites       OrgInvite[]
-  approvals     Approval[]
-  photos        Photo[]
+  memberships        OrgMembership[]
+  projects           Project[]
+  cdeFolders         CdeFolder[]
+  issues             Issue[]
+  auditLogs          AuditLog[]
+  stamps             Stamp[]
+  documents          Document[]
+  uploadBatches      UploadBatch[]
+  invites            OrgInvite[]
+  approvals          Approval[]
+  photos             Photo[]
+  meetings           Meeting[]
+  evidenceLinks      EvidenceLink[]
+  notifications      Notification[]
+  notificationOutbox NotificationOutbox[]
 }
 
 model OrgMembership {
@@ -171,6 +184,8 @@ model Project {
   documents     Document[]
   uploadBatches UploadBatch[]
   photos        Photo[]
+  meetings      Meeting[]
+  evidenceLinks EvidenceLink[]
 
   @@unique([orgId, slug])
   @@index([orgId])
@@ -411,6 +426,172 @@ model Photo {
 }
 
 // ============================================================
+// MÓDULO 6: REUNIÕES + ATAS + ACTION ITEMS
+// ============================================================
+
+model Meeting {
+  id          String        @id @default(cuid())
+  orgId       String
+  projectId   String
+  title       String
+  description String?       @db.Text
+  location    String?
+  scheduledAt DateTime
+  endedAt     DateTime?
+  status      MeetingStatus @default(AGENDADA)
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  org          Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User                 @relation("MeetingCreator", fields: [createdById], references: [id])
+  participants MeetingParticipant[]
+  minutes      MeetingMinutes?
+  actionItems  ActionItem[]
+  evidenceLinks EvidenceLink[]
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([scheduledAt])
+}
+
+model MeetingParticipant {
+  id        String   @id @default(cuid())
+  orgId     String
+  meetingId String
+  userId    String? // null = participante externo
+  name      String // Nome completo (externo ou interno)
+  email     String?
+  role      String? // Ex: "Fiscal", "Empreiteiro", "Projectista"
+  attended  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User?   @relation("MeetingParticipations", fields: [userId], references: [id])
+
+  @@index([meetingId])
+  @@index([orgId])
+}
+
+model MeetingMinutes {
+  id            String    @id @default(cuid())
+  orgId         String
+  meetingId     String    @unique
+  content       String    @db.Text // Rich text (HTML ou Markdown)
+  publishedAt   DateTime?
+  publishedById String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  meeting     Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  publishedBy User?   @relation("MinutesPublisher", fields: [publishedById], references: [id])
+
+  @@index([orgId])
+}
+
+model ActionItem {
+  id          String           @id @default(cuid())
+  orgId       String
+  meetingId   String
+  description String           @db.Text
+  assigneeId  String?
+  dueDate     DateTime?
+  status      ActionItemStatus @default(PENDENTE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  meeting  Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  assignee User?   @relation("ActionItemAssignee", fields: [assigneeId], references: [id])
+
+  @@index([meetingId])
+  @@index([orgId])
+  @@index([assigneeId])
+}
+
+// ============================================================
+// MÓDULO 8: LINKS PROBATÓRIOS (IMMUTABLE EVIDENCE CHAIN)
+// ============================================================
+
+model EvidenceLink {
+  id          String   @id @default(cuid())
+  orgId       String
+  projectId   String
+  // Source entity
+  sourceType  String // "Issue", "Document", "Photo", "Meeting"
+  sourceId    String
+  // Target entity
+  targetType  String // "Issue", "Document", "Photo", "Meeting"
+  targetId    String
+  // Metadata
+  description String?
+  createdById String
+  hash        String // SHA-256(orgId+sourceType+sourceId+targetType+targetId+createdById+createdAt) — imutável
+  createdAt   DateTime @default(now())
+  // NO updatedAt — links are IMMUTABLE (append-only)
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User         @relation("EvidenceLinkCreator", fields: [createdById], references: [id])
+  meeting   Meeting?     @relation(fields: [sourceId], references: [id]) // Only when sourceType=Meeting
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([sourceType, sourceId])
+  @@index([targetType, targetId])
+}
+
+// ============================================================
+// MÓDULO 9: NOTIFICAÇÕES (OUTBOX + IN-APP)
+// ============================================================
+
+model Notification {
+  id         String           @id @default(cuid())
+  orgId      String
+  userId     String // Destinatário
+  type       NotificationType
+  title      String
+  body       String?          @db.Text
+  entityType String? // "Issue", "Meeting", "Document", "Approval"
+  entityId   String?
+  read       Boolean          @default(false)
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model NotificationOutbox {
+  id            String          @id @default(cuid())
+  orgId         String
+  recipientId   String
+  channel       DeliveryChannel // EMAIL, WHATSAPP
+  subject       String?
+  body          String          @db.Text
+  status        OutboxStatus    @default(PENDING)
+  attempts      Int             @default(0)
+  lastAttemptAt DateTime?
+  deliveredAt   DateTime?
+  errorMessage  String?
+  entityType    String?
+  entityId      String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  recipient User         @relation("OutboxRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([status, createdAt])
+  @@index([recipientId])
+}
+
+// ============================================================
 // MÓDULO 4: CDE DOCUMENTOS + UPLOAD EM LOTE
 // ============================================================
 
@@ -611,4 +792,44 @@ enum ApprovalStatus {
   APPROVED
   REJECTED
   CANCELLED
+}
+
+enum MeetingStatus {
+  AGENDADA
+  EM_CURSO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum ActionItemStatus {
+  PENDENTE
+  EM_PROGRESSO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum NotificationType {
+  ISSUE_CREATED
+  ISSUE_ASSIGNED
+  ISSUE_STATUS_CHANGED
+  APPROVAL_REQUESTED
+  APPROVAL_DECIDED
+  MEETING_SCHEDULED
+  MEETING_MINUTES_PUBLISHED
+  ACTION_ITEM_ASSIGNED
+  ACTION_ITEM_DUE
+  DOCUMENT_UPLOADED
+  EVIDENCE_LINK_CREATED
+}
+
+enum DeliveryChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
 }
