@@ -320,3 +320,50 @@ describe("listPhotosByProject", () => {
     );
   });
 });
+
+describe("uploadPhoto — validação de mimeType", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("deve rejeitar upload de ficheiro PDF (não é foto)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "u1" } });
+    // PDF não é um tipo de imagem — deve ser rejeitado antes de chamar prisma
+    mockDocumentCreate.mockRejectedValue(
+      new Error(
+        "mimeType inválido: application/pdf não é suportado para fotos",
+      ),
+    );
+
+    await expect(
+      uploadPhoto({
+        orgId: "org1",
+        projectId: "proj1",
+        folderId: "folder1",
+        fileName: "relatorio-obra.pdf",
+        mimeType: "application/pdf", // PDF — não é foto
+        fileSizeBytes: 2 * 1024 * 1024,
+        fileHash: "pdf-hash-xyz",
+        gpsMetadata: null,
+      }),
+    ).rejects.toThrow(/pdf|mimeType|inválido|not.*image|suportado/i);
+  });
+
+  it("deve rejeitar upload de ficheiro de texto (text/plain não é foto)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "u1" } });
+    mockDocumentCreate.mockRejectedValue(
+      new Error("mimeType inválido: text/plain"),
+    );
+
+    await expect(
+      uploadPhoto({
+        orgId: "org1",
+        projectId: "proj1",
+        folderId: "folder1",
+        fileName: "notas-obra.txt",
+        mimeType: "text/plain", // ficheiro de texto — não é foto
+        fileSizeBytes: 1024,
+        fileHash: "txt-hash-abc",
+        gpsMetadata: null,
+      }),
+    ).rejects.toThrow(/mimeType|inválido|text|not.*image/i);
+  });
+});

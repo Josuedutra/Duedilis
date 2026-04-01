@@ -271,3 +271,45 @@ describe("RLS — FISCAL user isolation entre orgs", () => {
     );
   });
 });
+
+describe("RLS — User sem sessão → redirect /login", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("getDocument sem sessão → redirect /login", async () => {
+    // Simular user sem sessão (auth retorna null)
+    mockAuthOrgA.mockResolvedValue(null);
+
+    await expect(
+      getDocument({ documentId: DOC_ORG_A, orgId: ORG_A }),
+    ).rejects.toThrow(/REDIRECT:.*login/i);
+  });
+
+  it("listCdeFolders sem sessão → redirect /login", async () => {
+    mockAuthOrgA.mockResolvedValue(null);
+
+    await expect(
+      listCdeFolders({ orgId: ORG_A, projectId: PROJECT_ORG_A }),
+    ).rejects.toThrow(/REDIRECT:.*login/i);
+  });
+
+  it("approveDocument sem sessão → redirect /login", async () => {
+    mockAuthOrgA.mockResolvedValue(null);
+
+    await expect(
+      approveDocument({ approvalId: APPROVAL_ORG_A, orgId: ORG_A }),
+    ).rejects.toThrow(/REDIRECT:.*login/i);
+  });
+
+  it("listDocumentsByFolder sem sessão → redirect /login", async () => {
+    mockAuthOrgA.mockResolvedValue(null);
+
+    await expect(
+      listDocumentsByFolder({
+        folderId: FOLDER_ORG_A,
+        orgId: ORG_A,
+        limit: 10,
+        offset: 0,
+      }),
+    ).rejects.toThrow(/REDIRECT:.*login/i);
+  });
+});
