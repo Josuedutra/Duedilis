@@ -136,7 +136,7 @@ export async function listNotifications(input: ListNotificationsInput) {
         userId_orgId: { userId: requesterId, orgId: input.orgId },
       },
     });
-    if (!membership || membership.role !== "OWNER") {
+    if (!membership || membership.role !== "ADMIN_ORG") {
       return [];
     }
   }
