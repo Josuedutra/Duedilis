@@ -87,6 +87,11 @@ model User {
   auditLogs      AuditLog[]
   documents      Document[]
   uploadBatches  UploadBatch[]
+
+  // Approval workflow
+  submittedApprovals Approval[] @relation("ApprovalSubmitter")
+  reviewedApprovals  Approval[] @relation("ApprovalReviewer")
+  photos             Photo[]
 }
 
 // Organization = tenant root
@@ -108,6 +113,8 @@ model Organization {
   documents     Document[]
   uploadBatches UploadBatch[]
   invites       OrgInvite[]
+  approvals     Approval[]
+  photos        Photo[]
 }
 
 model OrgMembership {
@@ -163,6 +170,7 @@ model Project {
   cdeFolders    CdeFolder[]
   documents     Document[]
   uploadBatches UploadBatch[]
+  photos        Photo[]
 
   @@unique([orgId, slug])
   @@index([orgId])
@@ -263,6 +271,7 @@ model Issue {
   comments IssueComment[]
   stamps   IssueStamp[]
   closure  IssueClosure?
+  photos   Photo[]
 
   @@index([orgId])
   @@index([projectId])
@@ -349,6 +358,59 @@ model IssueClosure {
 }
 
 // ============================================================
+// MÓDULO 5: APPROVAL WORKFLOW + PHOTOS COM GPS
+// ============================================================
+
+model Approval {
+  id            String         @id @default(cuid())
+  orgId         String
+  documentId    String
+  submittedById String
+  status        ApprovalStatus @default(PENDING_REVIEW)
+  note          String?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  document  Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  submitter User         @relation("ApprovalSubmitter", fields: [submittedById], references: [id])
+  reviewer  User?        @relation("ApprovalReviewer", fields: [reviewedById], references: [id])
+
+  @@index([orgId])
+  @@index([documentId])
+  @@index([status])
+}
+
+model Photo {
+  id            String    @id @default(cuid())
+  orgId         String
+  projectId     String
+  issueId       String?
+  uploadedById  String
+  storageKey    String
+  fileHash      String
+  fileSizeBytes Int
+  mimeType      String
+  latitude      Float?
+  longitude     Float?
+  altitude      Float?
+  takenAt       DateTime?
+  caption       String?
+  createdAt     DateTime  @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project  Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issue    Issue?       @relation(fields: [issueId], references: [id])
+  uploader User         @relation(fields: [uploadedById], references: [id])
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([issueId])
+}
+
+// ============================================================
 // MÓDULO 4: CDE DOCUMENTOS + UPLOAD EM LOTE
 // ============================================================
 
@@ -409,6 +471,7 @@ model Document {
   folder   CdeFolder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
   uploader User         @relation(fields: [uploadedById], references: [id])
   batch    UploadBatch? @relation(fields: [batchId], references: [id])
+  approvals Approval[]
 
   @@index([orgId])
   @@index([projectId])
@@ -541,4 +604,11 @@ enum BatchStatus {
   READY // Todos os ficheiros prontos para revisão do utilizador
   CONFIRMED // Utilizador confirmou o batch completo
   PARTIAL // Batch parcialmente confirmado (alguns documentos rejeitados)
+}
+
+enum ApprovalStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
 }
