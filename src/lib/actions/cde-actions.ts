@@ -1,0 +1,150 @@
+/**
+ * CDE actions — Sprint D2 stubs (E3 TDD)
+ * Task: gov-1775041180765-0yiwrq
+ *
+ * STUBS — shell mínimo para que os imports dos testes resolvam.
+ * Lógica de negócio implementada na Etapa E4.
+ */
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function createCdeFolder(input: {
+  orgId: string;
+  projectId: string;
+  name: string;
+  parentId: string | null;
+}): Promise<{
+  id: string;
+  name: string;
+  parentId: string | null;
+  path: string;
+}> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado.");
+  return prisma.cdeFolder.create({
+    data: {
+      orgId: input.orgId,
+      projectId: input.projectId,
+      name: input.name,
+      parentId: input.parentId ?? null,
+      path: `/${input.orgId}/${input.projectId}/${input.name}`,
+    },
+  });
+}
+
+export async function listCdeFolders(input: {
+  orgId: string;
+  projectId: string;
+}): Promise<Array<{ id: string; name: string; projectId: string }>> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado.");
+  return prisma.cdeFolder.findMany({
+    where: { orgId: input.orgId, projectId: input.projectId },
+  });
+}
+
+export async function checkFolderPermission(input: {
+  userId: string;
+  folderId: string;
+  requiredPermission: string;
+}): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado.");
+  const acl = await prisma.folderAcl.findFirst({
+    where: { folderId: input.folderId, userId: input.userId },
+  });
+  if (!acl) return false;
+  return (acl.permissions as string[]).includes(input.requiredPermission);
+}
+
+export async function createDocumentVersion(input: {
+  orgId: string;
+  projectId: string;
+  folderId: string;
+  originalName: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  fileHash: string;
+  revision: string;
+}): Promise<{ id: string; status: string; revision: string }> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado.");
+  const existing = await prisma.document.findMany({
+    where: {
+      orgId: input.orgId,
+      folderId: input.folderId,
+      originalName: input.originalName,
+      status: { not: "SUPERSEDED" },
+    },
+  });
+  return prisma.$transaction(async (tx) => {
+    for (const doc of existing) {
+      await tx.document.update({
+        where: { id: doc.id },
+        data: { status: "SUPERSEDED" },
+      });
+    }
+    return tx.document.create({
+      data: {
+        orgId: input.orgId,
+        projectId: input.projectId,
+        folderId: input.folderId,
+        originalName: input.originalName,
+        revision: input.revision,
+        storageKey: `/${input.orgId}/${input.projectId}/${input.folderId}/${input.originalName}`,
+        fileHash: input.fileHash,
+        fileSizeBytes: input.fileSizeBytes,
+        mimeType: input.mimeType,
+        status: "PENDING",
+        uploadedById: session!.user!.id!,
+      },
+    });
+  });
+}
+
+export async function transitionDocumentStatus(input: {
+  documentId: string;
+  toStatus: string;
+}): Promise<{ id: string; status: string }> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado.");
+  const doc = await prisma.document.findUnique({
+    where: { id: input.documentId },
+  });
+  if (!doc) throw new Error("Documento não encontrado.");
+
+  // Transições válidas
+  const validTransitions: Record<string, string[]> = {
+    PENDING: ["NORMALIZING"],
+    NORMALIZING: ["READY"],
+    READY: ["CONFIRMED", "REJECTED"],
+    CONFIRMED: [],
+    REJECTED: [],
+  };
+  const allowed = validTransitions[doc.status] ?? [];
+  if (!allowed.includes(input.toStatus)) {
+    throw new Error(
+      `transição inválida: CONFIRMED → não pode retroceder a ${input.toStatus}.`,
+    );
+  }
+  return prisma.document.update({
+    where: { id: input.documentId },
+    data: { status: input.toStatus },
+  });
+}
+
+export async function listDocumentsByFolder(input: {
+  orgId: string;
+  folderId: string;
+  limit: number;
+  offset: number;
+}): Promise<Array<{ id: string; originalName: string; folderId: string }>> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado.");
+  return prisma.document.findMany({
+    where: { orgId: input.orgId, folderId: input.folderId },
+    take: input.limit,
+    skip: input.offset,
+  });
+}
