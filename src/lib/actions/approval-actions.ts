@@ -1,3 +1,5 @@
+"use server";
+
 /**
  * Approval actions — Sprint D2
  * Task: gov-1775041316173-u4jhw6 (D2-12: AuditLog integration)

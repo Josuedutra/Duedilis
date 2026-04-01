@@ -1,3 +1,5 @@
+"use server";
+
 /**
  * Photo actions — Sprint D2 stubs (E3 TDD)
  * Task: gov-1775041180765-0yiwrq
