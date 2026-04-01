@@ -137,6 +137,8 @@ export async function createDocumentVersion(input: {
 export async function transitionDocumentStatus(input: {
   documentId: string;
   toStatus: string;
+  /** Optional: override isoName when transitioning to CONFIRMED (user edit) */
+  isoName?: string;
 }): Promise<{ id: string; status: string }> {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado.");
@@ -156,13 +158,18 @@ export async function transitionDocumentStatus(input: {
   const allowed = validTransitions[doc.status] ?? [];
   if (!allowed.includes(input.toStatus)) {
     throw new Error(
-      `transição inválida: CONFIRMED → não pode retroceder a ${input.toStatus}.`,
+      `transição inválida: ${doc.status} → não pode transitar para ${input.toStatus}.`,
     );
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: Record<string, any> = { status: input.toStatus };
+  // Allow overriding isoName when user edits manually before confirming
+  if (input.isoName !== undefined) {
+    updateData.isoName = input.isoName;
   }
   const updated = await prisma.document.update({
     where: { id: input.documentId },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: { status: input.toStatus as any },
+    data: updateData,
   });
   await createAuditEntry({
     orgId: doc.orgId,

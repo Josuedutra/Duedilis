@@ -12,6 +12,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createAuditEntry } from "@/lib/services/audit-log";
 import { generatePresignedUploadUrl } from "@/lib/services/r2";
+import { normalizeDocumentName } from "@/lib/services/iso-normalization";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -196,6 +197,11 @@ export async function createIndividualDocument(input: {
     payload: { originalName: input.fileName, mimeType: input.mimeType },
   });
 
+  // Trigger ISO normalization async (fire-and-forget — errors logged, not thrown)
+  triggerDocumentNormalization(doc.id).catch((err) => {
+    console.error(`[iso-normalization] failed for doc ${doc.id}:`, err);
+  });
+
   return { id: doc.id, status: doc.status as string, batchId: null };
 }
 
@@ -243,6 +249,7 @@ export async function createUploadBatch(input: {
 
   // Create Document stubs + generate presigned URLs
   const presignedUrls: string[] = [];
+  const createdDocIds: string[] = [];
 
   for (const file of input.files) {
     const doc = await prisma.document.create({
@@ -266,6 +273,7 @@ export async function createUploadBatch(input: {
         batchId: batch.id,
       },
     });
+    createdDocIds.push(doc.id);
 
     try {
       const { uploadUrl } = await generatePresignedUploadUrl({
@@ -296,6 +304,13 @@ export async function createUploadBatch(input: {
     userId: session.user.id!,
     payload: { type: "UploadBatch", totalFiles: input.files.length },
   });
+
+  // Trigger ISO normalization for all docs in this batch (async, fire-and-forget)
+  for (const id of createdDocIds) {
+    triggerDocumentNormalization(id).catch((err) => {
+      console.error(`[iso-normalization] batch doc ${id} failed:`, err);
+    });
+  }
 
   return { batchId: batch.id, presignedUrls };
 }
@@ -338,4 +353,59 @@ export async function confirmBatch(input: {
 
     return { id: confirmed.id, status: confirmed.status as string };
   });
+}
+
+// ─── ISO normalization helper ─────────────────────────────────────────────────
+
+/**
+ * Trigger ISO 19650 normalization for a single document.
+ * PENDING → NORMALIZING → READY (or PENDING on failure).
+ * Exported for testability; normally called as fire-and-forget from actions above.
+ */
+export async function triggerDocumentNormalization(
+  documentId: string,
+): Promise<void> {
+  const doc = await prisma.document.findUnique({
+    where: { id: documentId },
+    include: { folder: true, project: true },
+  });
+
+  if (!doc || doc.status !== "PENDING") return;
+
+  await prisma.document.update({
+    where: { id: documentId },
+    data: { status: "NORMALIZING" },
+  });
+
+  try {
+    const folderPath = doc.folder?.name ?? doc.folderId;
+    const projectCode =
+      doc.project?.name?.substring(0, 8).toUpperCase() ?? "PRJ";
+
+    const result = await normalizeDocumentName({
+      originalName: doc.originalName,
+      projectCode,
+      folderPath,
+    });
+
+    await prisma.document.update({
+      where: { id: documentId },
+      data: {
+        isoName: result.isoName,
+        discipline: result.discipline,
+        docType: result.docType,
+        revision: result.revision,
+        status: "READY",
+      },
+    });
+  } catch (err) {
+    await prisma.document.update({
+      where: { id: documentId },
+      data: { status: "PENDING" },
+    });
+    console.error(
+      `[iso-normalization] triggerDocumentNormalization error:`,
+      err,
+    );
+  }
 }
