@@ -593,8 +593,8 @@ describe("Notifications RLS isolation", () => {
   it("user A não vê notificações de user B na mesma org (RLS)", async () => {
     // u1 autenticado tenta listar notificações de u2
     mockAuth.mockResolvedValue({ user: { id: "u1" } });
-    // u1 não é OWNER da org
-    mockOrgMembershipFindUnique.mockResolvedValue({ role: "MEMBER" });
+    // u1 não é ADMIN_ORG da org
+    mockOrgMembershipFindUnique.mockResolvedValue({ role: "FISCAL" });
 
     const result = await listNotifications({ orgId: "org1", userId: "u2" });
 
