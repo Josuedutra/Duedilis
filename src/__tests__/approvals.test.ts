@@ -20,6 +20,7 @@ const mockApprovalFindUnique = vi.hoisted(() => vi.fn());
 const mockApprovalUpdate = vi.hoisted(() => vi.fn());
 const mockStampCreate = vi.hoisted(() => vi.fn());
 const mockAuditLogCreate = vi.hoisted(() => vi.fn());
+const mockAuditLogFindFirst = vi.hoisted(() => vi.fn());
 const mockDocumentUpdate = vi.hoisted(() => vi.fn());
 const mockFolderAclFindFirst = vi.hoisted(() => vi.fn());
 const mockTransaction = vi.hoisted(() => vi.fn());
@@ -36,7 +37,8 @@ vi.mock("@/lib/prisma", () => ({
       create: mockStampCreate,
     },
     auditLog: {
-      create: mockAuditLogCreate,
+      create: mockAuditLogCreate.mockResolvedValue({ id: "audit-stub" }),
+      findFirst: mockAuditLogFindFirst.mockResolvedValue(null),
     },
     document: {
       update: mockDocumentUpdate,

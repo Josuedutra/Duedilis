@@ -8,6 +8,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createAuditEntry } from "@/lib/services/audit-log";
 
 export async function uploadPhoto(input: {
   orgId: string;
@@ -38,6 +39,18 @@ export async function uploadPhoto(input: {
       mimeType: input.mimeType,
       status: "PENDING",
       uploadedById: session.user.id!,
+    },
+  });
+  await createAuditEntry({
+    orgId: input.orgId,
+    entityType: "Photo",
+    entityId: doc.id,
+    action: "CREATE",
+    userId: session.user.id!,
+    payload: {
+      fileName: input.fileName,
+      mimeType: input.mimeType,
+      gps: input.gpsMetadata ?? null,
     },
   });
   return { id: doc.id, mimeType: doc.mimeType, status: doc.status as string };

@@ -1,14 +1,14 @@
 /**
- * Approval actions — Sprint D2 stubs (E3 TDD)
- * Task: gov-1775041180765-0yiwrq
+ * Approval actions — Sprint D2
+ * Task: gov-1775041316173-u4jhw6 (D2-12: AuditLog integration)
  *
- * STUBS — shell mínimo para que os imports dos testes resolvam.
- * Modelo Approval ainda não existe no schema — será adicionado na Etapa E4.
- * Usa (prisma as any) para evitar erro de compilação antes da migração.
+ * Modelo Approval ainda não existe no schema — usa (prisma as any).
+ * AuditLog integrado com hash chain via createAuditEntry service.
  */
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createAuditEntry } from "@/lib/services/audit-log";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -20,7 +20,7 @@ export async function submitApproval(input: {
 }): Promise<{ id: string; status: string; submittedById: string }> {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado.");
-  return db.approval.create({
+  const approval = await db.approval.create({
     data: {
       documentId: input.documentId,
       orgId: input.orgId,
@@ -29,6 +29,15 @@ export async function submitApproval(input: {
       status: "PENDING_REVIEW",
     },
   });
+  await createAuditEntry({
+    orgId: input.orgId,
+    entityType: "Approval",
+    entityId: approval.id,
+    action: "CREATE",
+    userId: session.user.id!,
+    payload: { documentId: input.documentId, status: "PENDING_REVIEW" },
+  });
+  return approval;
 }
 
 export async function approveDocument(input: {
@@ -52,7 +61,7 @@ export async function approveDocument(input: {
     throw new Error("403: sem permissão APPROVE nesta pasta.");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const txDb = tx as any;
     await txDb.stamp.create({
@@ -62,16 +71,6 @@ export async function approveDocument(input: {
         entityId: approval.id,
         fromState: "PENDING_REVIEW",
         toState: "APPROVED",
-        userId: session!.user!.id,
-        hash: "stub-hash",
-      },
-    });
-    await txDb.auditLog.create({
-      data: {
-        orgId: approval.orgId,
-        entityType: "Approval",
-        entityId: approval.id,
-        action: "APPROVE",
         userId: session!.user!.id,
         hash: "stub-hash",
       },
@@ -88,6 +87,20 @@ export async function approveDocument(input: {
       data: { status: "APPROVED" },
     });
   });
+  // Criar entry no AuditLog com hash chain real
+  await createAuditEntry({
+    orgId: approval.orgId,
+    entityType: "Approval",
+    entityId: approval.id,
+    action: "APPROVE",
+    userId: session!.user!.id!,
+    payload: {
+      documentId: approval.documentId,
+      fromStatus: "PENDING_REVIEW",
+      toStatus: "APPROVED",
+    },
+  });
+  return result;
 }
 
 export async function rejectApproval(input: {
@@ -114,7 +127,7 @@ export async function rejectApproval(input: {
     throw new Error("403: sem permissão APPROVE nesta pasta.");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const txDb = tx as any;
     await txDb.stamp.create({
@@ -129,21 +142,24 @@ export async function rejectApproval(input: {
         hash: "stub-hash",
       },
     });
-    await txDb.auditLog.create({
-      data: {
-        orgId: approval.orgId,
-        entityType: "Approval",
-        entityId: approval.id,
-        action: "REJECT",
-        userId: session!.user!.id,
-        hash: "stub-hash",
-      },
-    });
     return txDb.approval.update({
       where: { id: approval.id },
       data: { status: "REJECTED" },
     });
   });
+  await createAuditEntry({
+    orgId: approval.orgId,
+    entityType: "Approval",
+    entityId: approval.id,
+    action: "REJECT",
+    userId: session!.user!.id!,
+    payload: {
+      note: input.note,
+      fromStatus: "PENDING_REVIEW",
+      toStatus: "REJECTED",
+    },
+  });
+  return result;
 }
 
 export async function cancelApproval(input: {
@@ -160,8 +176,17 @@ export async function cancelApproval(input: {
       "Não pode cancelar: apenas o submitter pode cancelar a aprovação (permissão negada).",
     );
   }
-  return db.approval.update({
+  const result = await db.approval.update({
     where: { id: approval.id },
     data: { status: "CANCELLED" },
   });
+  await createAuditEntry({
+    orgId: approval.orgId,
+    entityType: "Approval",
+    entityId: approval.id,
+    action: "CANCEL",
+    userId: session.user.id!,
+    payload: { fromStatus: "PENDING_REVIEW", toStatus: "CANCELLED" },
+  });
+  return result;
 }

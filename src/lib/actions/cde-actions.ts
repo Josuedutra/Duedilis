@@ -8,6 +8,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createAuditEntry } from "@/lib/services/audit-log";
 
 export async function createCdeFolder(input: {
   orgId: string;
@@ -22,7 +23,7 @@ export async function createCdeFolder(input: {
 }> {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado.");
-  return prisma.cdeFolder.create({
+  const folder = await prisma.cdeFolder.create({
     data: {
       orgId: input.orgId,
       projectId: input.projectId,
@@ -31,6 +32,15 @@ export async function createCdeFolder(input: {
       path: `/${input.orgId}/${input.projectId}/${input.name}`,
     },
   });
+  await createAuditEntry({
+    orgId: input.orgId,
+    entityType: "CdeFolder",
+    entityId: folder.id,
+    action: "CREATE",
+    userId: session.user.id!,
+    payload: { name: input.name, parentId: input.parentId ?? null },
+  });
+  return folder;
 }
 
 export async function listCdeFolders(input: {
@@ -78,7 +88,7 @@ export async function createDocumentVersion(input: {
       status: { not: "REJECTED" }, // E4: use SUPERSEDED once added to DocumentStatus enum
     },
   });
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     for (const doc of existing) {
       await tx.document.update({
         where: { id: doc.id },
@@ -107,6 +117,19 @@ export async function createDocumentVersion(input: {
       revision: doc.revision ?? input.revision,
     };
   });
+  await createAuditEntry({
+    orgId: input.orgId,
+    entityType: "Document",
+    entityId: result.id,
+    action: "CREATE",
+    userId: session!.user!.id!,
+    payload: {
+      revision: input.revision,
+      originalName: input.originalName,
+      supersededCount: existing.length,
+    },
+  });
+  return result;
 }
 
 export async function transitionDocumentStatus(input: {
@@ -138,6 +161,14 @@ export async function transitionDocumentStatus(input: {
     where: { id: input.documentId },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: { status: input.toStatus as any },
+  });
+  await createAuditEntry({
+    orgId: doc.orgId,
+    entityType: "Document",
+    entityId: updated.id,
+    action: "TRANSITION",
+    userId: session.user.id!,
+    payload: { fromStatus: doc.status as string, toStatus: input.toStatus },
   });
   return { id: updated.id, status: updated.status as string };
 }
