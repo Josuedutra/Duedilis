@@ -1,3 +1,5 @@
+"use server";
+
 /**
  * Upload pipeline actions — Sprint D2
  * Task: gov-1775041212811-idm9pz
