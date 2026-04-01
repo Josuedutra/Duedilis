@@ -23,28 +23,9 @@ jobs:
       - run: pnpm lint
 
   test:
-    name: Unit Tests
+    name: Test
     runs-on: ubuntu-latest
     needs: lint
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm prisma generate
-        env:
-          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/duedilis
-      - run: pnpm test
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [lint, test]
     env:
       DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/duedilis
       NEXTAUTH_SECRET: ci-placeholder-secret-32-chars-long
@@ -59,5 +40,27 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+      - run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    env:
+      DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/duedilis
+      NEXTAUTH_SECRET: ci-placeholder-secret-32-chars-long
+      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high
       - run: pnpm prisma generate
       - run: pnpm build
