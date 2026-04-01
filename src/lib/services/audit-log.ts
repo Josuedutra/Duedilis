@@ -95,7 +95,9 @@ export async function createAuditEntry(
       entityId: input.entityId,
       action: input.action,
       userId: input.userId,
-      payload: input.payload ?? undefined,
+      payload: (input.payload ?? undefined) as
+        | import("@prisma/client").Prisma.InputJsonValue
+        | undefined,
       prevHash,
       hash,
       createdAt,
