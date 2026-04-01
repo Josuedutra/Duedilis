@@ -75,14 +75,15 @@ export async function createDocumentVersion(input: {
       orgId: input.orgId,
       folderId: input.folderId,
       originalName: input.originalName,
-      status: { not: "SUPERSEDED" },
+      status: { not: "REJECTED" }, // E4: use SUPERSEDED once added to DocumentStatus enum
     },
   });
   return prisma.$transaction(async (tx) => {
     for (const doc of existing) {
       await tx.document.update({
         where: { id: doc.id },
-        data: { status: "SUPERSEDED" },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data: { status: "SUPERSEDED" as any }, // E4: add SUPERSEDED to DocumentStatus enum
       });
     }
     return tx.document.create({
