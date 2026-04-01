@@ -272,35 +272,35 @@ describe("RLS — FISCAL user isolation entre orgs", () => {
   });
 });
 
-describe("RLS — User sem sessão → redirect /login", () => {
+describe("RLS — User sem sessão → não autenticado", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("getDocument sem sessão → redirect /login", async () => {
+  it("getDocument sem sessão → lança erro de autenticação", async () => {
     // Simular user sem sessão (auth retorna null)
     mockAuthOrgA.mockResolvedValue(null);
 
     await expect(
       getDocument({ documentId: DOC_ORG_A, orgId: ORG_A }),
-    ).rejects.toThrow(/REDIRECT:.*login/i);
+    ).rejects.toThrow("Não autenticado.");
   });
 
-  it("listCdeFolders sem sessão → redirect /login", async () => {
+  it("listCdeFolders sem sessão → lança erro de autenticação", async () => {
     mockAuthOrgA.mockResolvedValue(null);
 
     await expect(
       listCdeFolders({ orgId: ORG_A, projectId: PROJECT_ORG_A }),
-    ).rejects.toThrow(/REDIRECT:.*login/i);
+    ).rejects.toThrow("Não autenticado.");
   });
 
-  it("approveDocument sem sessão → redirect /login", async () => {
+  it("approveDocument sem sessão → lança erro de autenticação", async () => {
     mockAuthOrgA.mockResolvedValue(null);
 
     await expect(
       approveDocument({ approvalId: APPROVAL_ORG_A, orgId: ORG_A }),
-    ).rejects.toThrow(/REDIRECT:.*login/i);
+    ).rejects.toThrow("Não autenticado.");
   });
 
-  it("listDocumentsByFolder sem sessão → redirect /login", async () => {
+  it("listDocumentsByFolder sem sessão → lança erro de autenticação", async () => {
     mockAuthOrgA.mockResolvedValue(null);
 
     await expect(
@@ -310,6 +310,6 @@ describe("RLS — User sem sessão → redirect /login", () => {
         limit: 10,
         offset: 0,
       }),
-    ).rejects.toThrow(/REDIRECT:.*login/i);
+    ).rejects.toThrow("Não autenticado.");
   });
 });
