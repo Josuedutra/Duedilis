@@ -26,7 +26,7 @@ export async function uploadPhoto(input: {
 }): Promise<{ id: string; mimeType: string; status: string }> {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado.");
-  return prisma.document.create({
+  const doc = await prisma.document.create({
     data: {
       orgId: input.orgId,
       projectId: input.projectId,
@@ -40,6 +40,7 @@ export async function uploadPhoto(input: {
       uploadedById: session.user.id!,
     },
   });
+  return { id: doc.id, mimeType: doc.mimeType, status: doc.status as string };
 }
 
 export async function linkPhotoToIssue(input: {
