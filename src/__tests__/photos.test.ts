@@ -18,6 +18,8 @@ const mockEvidenceCreate = vi.hoisted(() => vi.fn());
 const mockEvidenceFindMany = vi.hoisted(() => vi.fn());
 const mockIssueFindUnique = vi.hoisted(() => vi.fn());
 const mockDocumentCreate = vi.hoisted(() => vi.fn());
+const mockAuditLogFindFirst = vi.hoisted(() => vi.fn());
+const mockAuditLogCreate = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/prisma", () => ({
@@ -31,6 +33,10 @@ vi.mock("@/lib/prisma", () => ({
     },
     document: {
       create: mockDocumentCreate,
+    },
+    auditLog: {
+      findFirst: mockAuditLogFindFirst.mockResolvedValue(null),
+      create: mockAuditLogCreate.mockResolvedValue({ id: "audit-stub" }),
     },
   },
 }));

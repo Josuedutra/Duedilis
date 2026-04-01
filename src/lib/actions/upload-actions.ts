@@ -8,6 +8,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createAuditEntry } from "@/lib/services/audit-log";
 
 export async function presignUpload(input: {
   orgId: string;
@@ -80,6 +81,14 @@ export async function createUploadBatch(_input: {
       totalFiles: _input.files.length,
     },
   });
+  await createAuditEntry({
+    orgId: _input.orgId,
+    entityType: "Document",
+    entityId: batch.id,
+    action: "CREATE",
+    userId: session.user.id!,
+    payload: { type: "UploadBatch", totalFiles: _input.files.length },
+  });
   return { batchId: batch.id, presignedUrls: [] };
 }
 
@@ -127,6 +136,14 @@ export async function createIndividualDocument(_input: {
       uploadedById: session.user.id!,
       batchId: null,
     },
+  });
+  await createAuditEntry({
+    orgId: _input.orgId,
+    entityType: "Document",
+    entityId: doc.id,
+    action: "CREATE",
+    userId: session.user.id!,
+    payload: { originalName: _input.fileName, mimeType: _input.mimeType },
   });
   return { id: doc.id, status: doc.status as string, batchId: null };
 }
