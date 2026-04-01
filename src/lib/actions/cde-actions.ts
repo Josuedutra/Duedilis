@@ -86,7 +86,7 @@ export async function createDocumentVersion(input: {
         data: { status: "SUPERSEDED" as any }, // E4: add SUPERSEDED to DocumentStatus enum
       });
     }
-    return tx.document.create({
+    const doc = await tx.document.create({
       data: {
         orgId: input.orgId,
         projectId: input.projectId,
@@ -101,6 +101,11 @@ export async function createDocumentVersion(input: {
         uploadedById: session!.user!.id!,
       },
     });
+    return {
+      id: doc.id,
+      status: doc.status as string,
+      revision: doc.revision ?? input.revision,
+    };
   });
 }
 
@@ -129,10 +134,12 @@ export async function transitionDocumentStatus(input: {
       `transição inválida: CONFIRMED → não pode retroceder a ${input.toStatus}.`,
     );
   }
-  return prisma.document.update({
+  const updated = await prisma.document.update({
     where: { id: input.documentId },
-    data: { status: input.toStatus },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: { status: input.toStatus as any },
   });
+  return { id: updated.id, status: updated.status as string };
 }
 
 export async function listDocumentsByFolder(input: {
