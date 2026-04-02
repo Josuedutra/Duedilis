@@ -206,20 +206,20 @@ describe("WhatsApp urgente", () => {
     };
 
     mockOutboxFindMany.mockResolvedValue([whatsappEntry]);
-    // WhatsApp delivery não tem implementação real (placeholder) — não deve lançar erro
+    // D3-13 optimization: no intermediate PROCESSING step (single DB round-trip)
     mockOutboxUpdate.mockResolvedValue({
       id: "outbox-wa-2",
-      status: "PROCESSING",
+      status: "DELIVERED",
     });
 
     // processOutbox não deve lançar exceção para WHATSAPP entries
     await expect(processOutbox()).resolves.not.toThrow();
 
-    // outbox.update deve ter sido chamado para transitar para PROCESSING
+    // outbox.update deve ter sido chamado (PENDING→DELIVERED ou PENDING→FAILED)
     expect(mockOutboxUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "outbox-wa-2" },
-        data: expect.objectContaining({ status: "PROCESSING" }),
+        data: expect.objectContaining({ lastAttemptAt: expect.any(Date) }),
       }),
     );
   });

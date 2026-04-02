@@ -408,15 +408,8 @@ describe("Worker — processOutbox", () => {
 
     await processOutbox();
 
-    // Deve primeiro transitar para PROCESSING
-    expect(mockOutboxUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "outbox-ok" },
-        data: expect.objectContaining({ status: "PROCESSING" }),
-      }),
-    );
-
-    // Depois de sucesso, deve transitar para DELIVERED
+    // D3-13 optimization: no intermediate PROCESSING step (single DB round-trip)
+    // PENDING→DELIVERED in one update
     expect(mockOutboxUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "outbox-ok" },
@@ -510,7 +503,8 @@ describe("Worker — processOutbox", () => {
 
     await processOutbox();
 
-    // Deve ter processado 2 entradas (2x PROCESSING + 2x DELIVERED = 4 updates)
-    expect(mockOutboxUpdate).toHaveBeenCalledTimes(4);
+    // D3-13 optimization: no intermediate PROCESSING step (single DB round-trip)
+    // 2 entries × 1 update each = 2 updates (PENDING→DELIVERED)
+    expect(mockOutboxUpdate).toHaveBeenCalledTimes(2);
   });
 });

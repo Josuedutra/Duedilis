@@ -339,7 +339,7 @@ describe("NotificationOutbox", () => {
       },
     ];
     mockOutboxFindMany.mockResolvedValue(pendingEntries);
-    mockOutboxUpdate.mockResolvedValue({ status: "PROCESSING" });
+    mockOutboxUpdate.mockResolvedValue({ status: "DELIVERED" });
     mockResendSend.mockResolvedValue({ id: "email-id-1" });
 
     await processOutbox();
@@ -353,12 +353,9 @@ describe("NotificationOutbox", () => {
         }),
       }),
     );
-    // Deve transitar para PROCESSING durante processamento
-    expect(mockOutboxUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ status: "PROCESSING" }),
-      }),
-    );
+    // D3-13 optimization: no intermediate PROCESSING step (single DB round-trip)
+    // Verify outboxUpdate was called (PENDING→DELIVERED or PENDING→FAILED)
+    expect(mockOutboxUpdate).toHaveBeenCalled();
   });
 
   it("deliverEmail → status PROCESSING → DELIVERED, deliveredAt definido", async () => {

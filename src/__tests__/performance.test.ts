@@ -78,6 +78,7 @@ vi.mock("@/lib/prisma", () => ({
     issue: {
       findMany: mockIssueFindMany,
       create: mockIssueCreate,
+      findUnique: vi.fn(),
     },
     orgMembership: {
       findUnique: mockOrgMembershipFindUnique,
@@ -123,6 +124,11 @@ vi.mock("@/lib/prisma", () => ({
     evidence: {
       findMany: mockEvidenceFindMany,
       create: mockEvidenceCreate,
+    },
+    evidenceLink: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
     },
     meeting: {
       findMany: mockMeetingFindMany,
@@ -360,28 +366,41 @@ describe("Performance benchmarks baseline", () => {
   });
 
   it("createEvidenceLink — response time < 100ms", async () => {
-    // RED: evidence-link-actions ainda não existe (D3-T06).
-    mockEvidenceCreate.mockResolvedValue({
-      id: "ev-1",
-      issueId: "issue-1",
-      documentId: "doc-1",
-    });
-    mockEvidenceFindMany.mockResolvedValue([]);
-
-    const mod = await import("@/lib/actions/evidence-link-actions");
-    const createEvidenceLink = (
-      mod as unknown as {
-        createEvidenceLink: (input: {
-          issueId: string;
-          documentId: string;
-        }) => Promise<unknown>;
+    // Set up mocks for fetchEntity (issue + document) and evidenceLink.create
+    const prismaModule = await import("@/lib/prisma");
+    const prismaMock = (
+      prismaModule as unknown as {
+        prisma: Record<string, Record<string, ReturnType<typeof vi.fn>>>;
       }
-    ).createEvidenceLink;
+    ).prisma;
+    prismaMock.issue.findUnique.mockResolvedValue({
+      id: "issue-1",
+      orgId: "org-1",
+    });
+    prismaMock.document.findUnique.mockResolvedValue({
+      id: "doc-1",
+      orgId: "org-1",
+    });
+    prismaMock.evidenceLink.create.mockResolvedValue({
+      id: "el-1",
+      orgId: "org-1",
+      sourceType: "Issue",
+      sourceId: "issue-1",
+      targetType: "Document",
+      targetId: "doc-1",
+    });
+
+    const { createEvidenceLink } =
+      await import("@/lib/actions/evidence-link-actions");
 
     const p95 = await measureP95(async () => {
       return await createEvidenceLink({
-        issueId: "issue-1",
-        documentId: "doc-1",
+        orgId: "org-1",
+        projectId: "proj-1",
+        sourceType: "Issue",
+        sourceId: "issue-1",
+        targetType: "Document",
+        targetId: "doc-1",
       });
     });
 
