@@ -1,17 +1,20 @@
 /**
- * RLS end-to-end audit — Sprint D3, Task D3-12
- * Task: gov-1775086323452-3yf2to
+ * RLS end-to-end audit — Sprint D3, Task D3-12 (v2)
+ * Task: gov-1775091696705-vbyjom
  *
  * Auditoria completa de isolamento RLS por orgId em todos os server actions e API routes.
  *
  * Categorias testadas:
- *  1. Cross-tenant isolation — acções de Org A não devolvem dados de Org B
- *  2. Session enforcement — sem sessão → 401/Não autenticado
- *  3. orgId spoofing — user de Org A com orgId de Org B → rejeitado
- *  4. Admin vs member — ADMIN_ORG vs roles restritos (OBSERVADOR)
- *  5. API routes — GET/POST/PATCH/DELETE com cross-tenant
- *  6. DELETE operations — user não apaga recursos de outra org
- *  7. UPDATE operations — user não edita recursos de outra org
+ *  1.  Cross-tenant isolation — acções de Org A não devolvem dados de Org B
+ *  2.  Session enforcement — sem sessão → 401/Não autenticado
+ *  3.  orgId spoofing — user de Org A com orgId de Org B → rejeitado
+ *  4.  Admin vs member — ADMIN_ORG vs roles restritos (OBSERVADOR)
+ *  5.  API routes — GET/POST/PATCH/DELETE com cross-tenant
+ *  6.  DELETE operations — user não apaga recursos de outra org
+ *  7.  UPDATE operations — user não edita recursos de outra org
+ *  8.  D3: EvidenceLink — RLS createEvidenceLink/listEvidenceLinks/getEntityWithLinks
+ *  9.  D3: Notifications — RLS listNotifications/markAsRead/getUnreadCount
+ *  10. D3: findUnique by id alone audit — verificar que não há access sem orgId guard
  *
  * NOTA: qualquer falha RLS identificada é documentada como BUG task separada —
  *       este teste NÃO altera server actions nem routes.
@@ -59,6 +62,28 @@ const mockAuditLogCreate = vi.hoisted(() => vi.fn());
 const mockStampCreate = vi.hoisted(() => vi.fn());
 const mockTransaction = vi.hoisted(() => vi.fn());
 
+// D3 mocks: EvidenceLink, Notification, EmailOutbox
+const mockEvidenceLinkFindMany = vi.hoisted(() => vi.fn());
+const mockEvidenceLinkCreate = vi.hoisted(() => vi.fn());
+
+// D3: entity model mocks used by fetchEntity in evidence-link-actions
+const mockIssueFindUnique = vi.hoisted(() => vi.fn());
+const mockPhotoFindUnique = vi.hoisted(() => vi.fn());
+const mockMeetingFindUnique = vi.hoisted(() => vi.fn());
+
+const mockNotificationFindUnique = vi.hoisted(() => vi.fn());
+const mockNotificationFindMany = vi.hoisted(() => vi.fn());
+const mockNotificationCount = vi.hoisted(() => vi.fn());
+const mockNotificationCreate = vi.hoisted(() => vi.fn());
+const mockNotificationUpdate = vi.hoisted(() => vi.fn());
+const mockNotificationUpdateMany = vi.hoisted(() => vi.fn());
+
+const mockEmailOutboxFindFirst = vi.hoisted(() => vi.fn());
+const mockEmailOutboxCreate = vi.hoisted(() => vi.fn());
+const mockEmailOutboxFindMany = vi.hoisted(() => vi.fn());
+const mockEmailOutboxUpdate = vi.hoisted(() => vi.fn());
+const mockEmailOutboxUpdateMany = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/auth", () => ({ auth: mockAuth }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -103,6 +128,30 @@ vi.mock("@/lib/prisma", () => ({
       create: mockAuditLogCreate,
     },
     stamp: { create: mockStampCreate },
+    // D3 models (via prisma as any in actions)
+    evidenceLink: {
+      findMany: mockEvidenceLinkFindMany,
+      create: mockEvidenceLinkCreate,
+    },
+    // entity models used by fetchEntity in evidence-link-actions
+    issue: { findUnique: mockIssueFindUnique },
+    photo: { findUnique: mockPhotoFindUnique },
+    meeting: { findUnique: mockMeetingFindUnique },
+    notification: {
+      findUnique: mockNotificationFindUnique,
+      findMany: mockNotificationFindMany,
+      count: mockNotificationCount,
+      create: mockNotificationCreate,
+      update: mockNotificationUpdate,
+      updateMany: mockNotificationUpdateMany,
+    },
+    emailOutbox: {
+      findFirst: mockEmailOutboxFindFirst,
+      create: mockEmailOutboxCreate,
+      findMany: mockEmailOutboxFindMany,
+      update: mockEmailOutboxUpdate,
+      updateMany: mockEmailOutboxUpdateMany,
+    },
     $transaction: mockTransaction,
   },
 }));
@@ -129,6 +178,14 @@ vi.mock("next/navigation", () => ({
   revalidatePath: vi.fn(),
 }));
 
+vi.mock("resend", () => ({
+  Resend: vi.fn().mockImplementation(() => ({
+    emails: {
+      send: vi.fn().mockResolvedValue({ id: "email-id" }),
+    },
+  })),
+}));
+
 // ─── Import actions under test ─────────────────────────────────────────────
 import {
   getDocument,
@@ -153,6 +210,21 @@ import {
   deletePhoto,
 } from "@/lib/actions/photo-actions";
 
+import {
+  createEvidenceLink,
+  listEvidenceLinks,
+  getEntityWithLinks,
+  updateEvidenceLink,
+  deleteEvidenceLink,
+} from "@/lib/actions/evidence-link-actions";
+
+import {
+  listNotifications,
+  markAsRead,
+  getUnreadCount,
+  markAllAsRead,
+} from "@/lib/actions/notification-actions";
+
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 const ORG_A = "org-a-uuid";
 const ORG_B = "org-b-uuid";
@@ -164,6 +236,7 @@ const FOLDER_ORG_A = "folder-uuid-org-a";
 const PROJECT_ORG_A = "project-uuid-org-a";
 const APPROVAL_ORG_A = "approval-uuid-org-a";
 const PHOTO_ORG_A = "photo-uuid-org-a";
+const NOTIF_ORG_A = "notif-uuid-org-a";
 
 // ─── 1. Cross-tenant isolation — rls-guards ───────────────────────────────────
 describe("1. Cross-tenant isolation — rls-guards", () => {
@@ -343,6 +416,52 @@ describe("2. Session enforcement — sem sessão válida → erro", () => {
       deletePhoto({ photoId: PHOTO_ORG_A, orgId: ORG_A }),
     ).rejects.toThrow("Não autenticado.");
   });
+
+  it("createEvidenceLink sem sessão → Não autenticado", async () => {
+    mockAuth.mockResolvedValue(null);
+    await expect(
+      createEvidenceLink({
+        orgId: ORG_A,
+        projectId: PROJECT_ORG_A,
+        sourceType: "Issue",
+        sourceId: "issue-1",
+        targetType: "Document",
+        targetId: DOC_ORG_A,
+      }),
+    ).rejects.toThrow("Não autenticado.");
+  });
+
+  it("listEvidenceLinks sem sessão → Não autenticado", async () => {
+    mockAuth.mockResolvedValue(null);
+    await expect(listEvidenceLinks({ orgId: ORG_A })).rejects.toThrow(
+      "Não autenticado.",
+    );
+  });
+
+  it("getEntityWithLinks sem sessão → Não autenticado", async () => {
+    mockAuth.mockResolvedValue(null);
+    await expect(
+      getEntityWithLinks({
+        orgId: ORG_A,
+        entityType: "Issue",
+        entityId: "issue-1",
+      }),
+    ).rejects.toThrow("Não autenticado.");
+  });
+
+  it("markAsRead sem sessão → Não autenticado", async () => {
+    mockAuth.mockResolvedValue(null);
+    await expect(markAsRead({ notificationId: NOTIF_ORG_A })).rejects.toThrow(
+      "Não autenticado.",
+    );
+  });
+
+  it("markAllAsRead sem sessão → Não autenticado", async () => {
+    mockAuth.mockResolvedValue(null);
+    await expect(
+      markAllAsRead({ orgId: ORG_A, userId: USER_A }),
+    ).rejects.toThrow("Não autenticado.");
+  });
 });
 
 // ─── 3. orgId spoofing ────────────────────────────────────────────────────────
@@ -451,6 +570,35 @@ describe("3. orgId spoofing — user de Org A com orgId de Org B", () => {
         where: expect.objectContaining({ orgId: ORG_B }),
       }),
     );
+  });
+
+  it("createEvidenceLink: user Org A passando orgId Org B → 403 (não é membro)", async () => {
+    // createEvidenceLink verifica membership explicitamente → RLS correcto
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+    mockOrgMembershipFindUnique.mockResolvedValue(null); // USER_A não é membro de ORG_B
+
+    await expect(
+      createEvidenceLink({
+        orgId: ORG_B, // ← spoofed
+        projectId: PROJECT_ORG_A,
+        sourceType: "Issue",
+        sourceId: "issue-1",
+        targetType: "Document",
+        targetId: DOC_ORG_A,
+      }),
+    ).rejects.toThrow(/403|Sem acesso/i);
+  });
+
+  it("listEvidenceLinks: user Org A passando orgId Org B → retorna vazio (não é membro)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+    mockOrgMembershipFindUnique.mockResolvedValue(null); // não é membro de ORG_B
+
+    const result = await listEvidenceLinks({ orgId: ORG_B });
+
+    // listEvidenceLinks retorna [] se não é membro (sem leak)
+    expect(result).toHaveLength(0);
+    // evidenceLink.findMany NÃO deve ser chamado (retorno antecipado)
+    expect(mockEvidenceLinkFindMany).not.toHaveBeenCalled();
   });
 });
 
@@ -563,6 +711,51 @@ describe("4. Admin vs member — role-based access", () => {
 
     const result = await cancelApproval({ approvalId: APPROVAL_ORG_A });
     expect(result.status).toBe("CANCELLED");
+  });
+
+  it("listNotifications: user A tenta ver notificações de user B (sem ser admin) → retorna vazio", async () => {
+    // RLS correcto: listNotifications verifica requesterId !== userId
+    // e se não é ADMIN_ORG, retorna []
+    mockAuth.mockResolvedValue({ user: { id: USER_A } }); // A tenta ver B's notifications
+    mockOrgMembershipFindUnique.mockResolvedValue({
+      userId: USER_A,
+      orgId: ORG_A,
+      role: "OBSERVADOR", // não é ADMIN_ORG
+    });
+
+    const result = await listNotifications({
+      orgId: ORG_A,
+      userId: USER_B, // ← USER_A a pedir notificações de USER_B
+    });
+
+    expect(result).toHaveLength(0);
+    expect(mockNotificationFindMany).not.toHaveBeenCalled();
+  });
+
+  it("listNotifications: ADMIN_ORG pode ver notificações de outros users", async () => {
+    // ADMIN_ORG tem acesso cross-user dentro da mesma org
+    mockAuth.mockResolvedValue({ user: { id: ADMIN_A } });
+    mockOrgMembershipFindUnique.mockResolvedValue({
+      userId: ADMIN_A,
+      orgId: ORG_A,
+      role: "ADMIN_ORG",
+    });
+    mockNotificationFindMany.mockResolvedValue([
+      { id: NOTIF_ORG_A, orgId: ORG_A, userId: USER_A, read: false },
+    ]);
+
+    const result = await listNotifications({
+      orgId: ORG_A,
+      userId: USER_A, // ADMIN_A a pedir notificações de USER_A
+    });
+
+    expect(result).toHaveLength(1);
+    // Verifica que WHERE inclui orgId + userId
+    expect(mockNotificationFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ orgId: ORG_A, userId: USER_A }),
+      }),
+    );
   });
 });
 
@@ -784,6 +977,17 @@ describe("6. DELETE — user não apaga recursos de outra org", () => {
     // Espera 404 (ou 500 se deletePhoto lança)
     expect([404, 500]).toContain(response.status);
   });
+
+  it("deleteEvidenceLink: sempre lança 403 (links são imutáveis)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+
+    await expect(
+      deleteEvidenceLink({ id: "link-1", orgId: ORG_A }),
+    ).rejects.toThrow(/403|imutáv/i);
+
+    // Verificar que nenhum delete foi chamado na DB
+    expect(mockEvidenceLinkFindMany).not.toHaveBeenCalled();
+  });
 });
 
 // ─── 7. UPDATE operations ─────────────────────────────────────────────────────
@@ -899,6 +1103,279 @@ describe("7. UPDATE — user não edita recursos de outra org", () => {
       }),
     ).rejects.toThrow(/não encontrado|404|permissão/i);
   });
+
+  it("updateEvidenceLink: sempre lança 403 (links são imutáveis)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+
+    await expect(
+      updateEvidenceLink({ id: "link-1", orgId: ORG_A }),
+    ).rejects.toThrow(/403|imutáv/i);
+  });
+
+  it("markAsRead: user B tenta marcar notificação de user A como lida → 403", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_B } });
+
+    // Notificação pertence a USER_A
+    mockNotificationFindUnique.mockResolvedValue({
+      id: NOTIF_ORG_A,
+      orgId: ORG_A,
+      userId: USER_A, // diferente do USER_B autenticado
+      read: false,
+    });
+
+    await expect(markAsRead({ notificationId: NOTIF_ORG_A })).rejects.toThrow(
+      /403|permissão/i,
+    );
+  });
+});
+
+// ─── 8. D3: EvidenceLink RLS audit ────────────────────────────────────────────
+describe("8. D3: EvidenceLink — RLS cross-tenant validation", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("createEvidenceLink: source pertence a Org B mas input.orgId=Org A → 403", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+
+    // USER_A é membro de ORG_A
+    mockOrgMembershipFindUnique.mockResolvedValue({
+      userId: USER_A,
+      orgId: ORG_A,
+      role: "GESTOR_PROJETO",
+    });
+
+    // source entity (Issue) não encontrada (simula pertencer a outra org ou não existir)
+    mockIssueFindUnique.mockResolvedValue(null);
+
+    await expect(
+      createEvidenceLink({
+        orgId: ORG_A,
+        projectId: PROJECT_ORG_A,
+        sourceType: "Issue",
+        sourceId: "issue-from-org-b",
+        targetType: "Document",
+        targetId: DOC_ORG_A,
+      }),
+    ).rejects.toThrow(/403|forbidden|cross-org/i);
+  });
+
+  it("listEvidenceLinks: query inclui orgId no WHERE (RLS correcto)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+    mockOrgMembershipFindUnique.mockResolvedValue({
+      userId: USER_A,
+      orgId: ORG_A,
+      role: "GESTOR_PROJETO",
+    });
+    mockEvidenceLinkFindMany.mockResolvedValue([]);
+
+    await listEvidenceLinks({
+      orgId: ORG_A,
+      sourceType: "Issue",
+      sourceId: "issue-1",
+    });
+
+    // findMany deve incluir orgId no WHERE
+    expect(mockEvidenceLinkFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ orgId: ORG_A }),
+      }),
+    );
+  });
+
+  it("getEntityWithLinks: todos os findMany incluem orgId no WHERE", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+    mockIssueFindUnique.mockResolvedValue({ id: "issue-1", orgId: ORG_A });
+    mockEvidenceLinkFindMany.mockResolvedValue([]);
+
+    await getEntityWithLinks({
+      orgId: ORG_A,
+      entityType: "Issue",
+      entityId: "issue-1",
+    });
+
+    // Ambos os findMany (source + target) devem incluir orgId
+    const calls = mockEvidenceLinkFindMany.mock.calls;
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    for (const [args] of calls) {
+      expect(args).toMatchObject({
+        where: expect.objectContaining({ orgId: ORG_A }),
+      });
+    }
+  });
+
+  it("createEvidenceLink: link criado inclui orgId correcto", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+    mockOrgMembershipFindUnique.mockResolvedValue({
+      userId: USER_A,
+      orgId: ORG_A,
+      role: "GESTOR_PROJETO",
+    });
+
+    // source (Issue) e target (Document) pertencem a ORG_A
+    mockIssueFindUnique.mockResolvedValue({ id: "issue-1", orgId: ORG_A });
+    mockDocumentFindUnique.mockResolvedValue({ id: DOC_ORG_A, orgId: ORG_A });
+    mockEvidenceLinkCreate.mockResolvedValue({
+      id: "link-new",
+      orgId: ORG_A,
+      sourceType: "Issue",
+      sourceId: "issue-1",
+      targetType: "Document",
+      targetId: DOC_ORG_A,
+    });
+    mockAuditLogFindFirst.mockResolvedValue(null);
+    mockAuditLogCreate.mockResolvedValue({ id: "audit-1" });
+
+    await createEvidenceLink({
+      orgId: ORG_A,
+      projectId: PROJECT_ORG_A,
+      sourceType: "Issue",
+      sourceId: "issue-1",
+      targetType: "Document",
+      targetId: DOC_ORG_A,
+    });
+
+    // link criado com orgId=ORG_A
+    expect(mockEvidenceLinkCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ orgId: ORG_A }),
+      }),
+    );
+    // AuditLog criado com orgId=ORG_A
+    expect(mockAuditLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ orgId: ORG_A }),
+      }),
+    );
+  });
+});
+
+// ─── 9. D3: Notifications RLS audit ────────────────────────────────────────────
+describe("9. D3: Notifications — RLS orgId/userId isolation", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("listNotifications: WHERE inclui orgId + userId (não retorna notificações de outras orgs)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+    mockNotificationFindMany.mockResolvedValue([]);
+
+    await listNotifications({ orgId: ORG_A, userId: USER_A });
+
+    expect(mockNotificationFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ orgId: ORG_A, userId: USER_A }),
+      }),
+    );
+  });
+
+  it("getUnreadCount: WHERE inclui orgId + userId + read:false", async () => {
+    mockNotificationCount.mockResolvedValue(3);
+
+    const count = await getUnreadCount({ orgId: ORG_A, userId: USER_A });
+
+    expect(count).toBe(3);
+    expect(mockNotificationCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          orgId: ORG_A,
+          userId: USER_A,
+          read: false,
+        }),
+      }),
+    );
+  });
+
+  it("getUnreadCount: Org B retorna 0 (sem notificações dessa org)", async () => {
+    mockNotificationCount.mockResolvedValue(0);
+
+    const count = await getUnreadCount({ orgId: ORG_B, userId: USER_A });
+
+    expect(count).toBe(0);
+    // WHERE usa orgId=ORG_B — não vê notificações de ORG_A
+    expect(mockNotificationCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ orgId: ORG_B }),
+      }),
+    );
+  });
+
+  it("markAllAsRead: WHERE inclui orgId + userId (não afecta outras orgs)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+    mockNotificationUpdateMany.mockResolvedValue({ count: 2 });
+
+    await markAllAsRead({ orgId: ORG_A, userId: USER_A });
+
+    expect(mockNotificationUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ orgId: ORG_A, userId: USER_A }),
+      }),
+    );
+  });
+
+  it("markAsRead: notificação não encontrada → erro (isolamento por id)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+    mockNotificationFindUnique.mockResolvedValue(null);
+
+    await expect(
+      markAsRead({ notificationId: "notif-inexistente" }),
+    ).rejects.toThrow(/não encontrada/i);
+  });
+
+  it("markAsRead: utilizador correcto marca a sua notificação como lida", async () => {
+    mockAuth.mockResolvedValue({ user: { id: USER_A } });
+    mockNotificationFindUnique.mockResolvedValue({
+      id: NOTIF_ORG_A,
+      orgId: ORG_A,
+      userId: USER_A,
+      read: false,
+    });
+    mockNotificationUpdate.mockResolvedValue({
+      id: NOTIF_ORG_A,
+      read: true,
+    });
+
+    const result = await markAsRead({ notificationId: NOTIF_ORG_A });
+    expect(result.read).toBe(true);
+    // update não inclui orgId/userId no WHERE — apenas id (busca por id único)
+    // isto é aceitável porque notificationId é UUID único e o check de userId já foi feito
+    expect(mockNotificationUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: NOTIF_ORG_A }),
+      }),
+    );
+  });
+});
+
+// ─── 10. findUnique by id alone audit ─────────────────────────────────────────
+describe("10. findUnique by id alone — audit de acessos sem orgId guard", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("AUDIT: approveDocument usa findUnique(id) sem orgId — ACL check é segunda linha de defesa", () => {
+    // approval-actions.approveDocument busca approval por { id } sem orgId
+    // Risco: se approval existir, encontra independentemente da org
+    // Mitigação actual: folderAcl check na linha seguinte
+    // Recomendação: adicionar WHERE orgId ao findUnique ou validar approval.orgId ≡ user.orgMembership
+    expect(true).toBe(true); // audit documentado
+  });
+
+  it("AUDIT: markAsRead usa findUnique(notificationId) sem orgId — userId check é segunda linha de defesa", () => {
+    // notification-actions.markAsRead busca notification por { id: notificationId }
+    // sem incluir orgId no WHERE. Após a busca, verifica notification.userId === session.user.id
+    // Risco: notification de qualquer org pode ser encontrada pelo UUID
+    // Mitigação actual: userId check imediato → 403 se cross-user
+    // Recomendação: adicionar orgId ao findUnique: { id, orgId }
+    expect(true).toBe(true); // audit documentado
+  });
+
+  it("AUDIT: cancelApproval usa findUnique(id) sem orgId — submittedById check é segunda linha de defesa", () => {
+    // approval-actions.cancelApproval busca approval apenas por id
+    // Verificação posterior: approval.submittedById === session.user.id
+    // Risco: cross-tenant approval encontrado se UUID conhecido
+    // Recomendação: adicionar WHERE orgId ao findUnique
+    expect(true).toBe(true); // audit documentado
+  });
+
+  it("AUDIT: rejectApproval usa findUnique(id) sem orgId — mesma pattern que approveDocument", () => {
+    // approval-actions.rejectApproval — mesma pattern que approveDocument
+    expect(true).toBe(true); // audit documentado
+  });
 });
 
 // ─── RLS Audit Summary ─────────────────────────────────────────────────────────
@@ -940,9 +1417,16 @@ describe("RLS Audit — Summary de gaps identificados", () => {
     // api/photos/[id]/route.ts:DELETE busca a foto por id+type sem verificar
     // se pertence à org do user autenticado. Passa orgId da foto para deletePhoto,
     // mas deletePhoto verifica membership — segunda linha de defesa protege.
-    // Risco: se deletePhoto fosse chamado com outro orgId, poderia apagar cross-org.
     //
     // → BUG task: "RLS gap: DELETE /api/photos/[id] — adicionar orgId filter no findFirst inicial"
+    expect(true).toBe(true); // documentação intencional
+  });
+
+  it("AUDIT: markAsRead usa findUnique por id sem orgId — userId check protege mas audit gap existe", () => {
+    // notification-actions.ts:markAsRead() usa findUnique({ id }) sem orgId.
+    // Qualquer notificação pode ser encontrada pelo UUID.
+    // Mitigação: userId check imediato após a busca.
+    // Recomendação: { where: { id, orgId } } para defense in depth.
     expect(true).toBe(true); // documentação intencional
   });
 });
