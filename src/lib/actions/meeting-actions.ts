@@ -98,7 +98,16 @@ export async function listMeetings(input: {
   page?: number;
   pageSize?: number;
 }): Promise<
-  Array<{ id: string; orgId: string; projectId: string; status: string }>
+  Array<{
+    id: string;
+    orgId: string;
+    projectId: string;
+    title: string;
+    scheduledAt: Date;
+    status: string;
+    location: string | null;
+    createdById: string;
+  }>
 > {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado.");
@@ -122,6 +131,16 @@ export async function listMeetings(input: {
     take,
     skip,
     orderBy: { scheduledAt: "asc" },
+    select: {
+      id: true,
+      orgId: true,
+      projectId: true,
+      title: true,
+      scheduledAt: true,
+      status: true,
+      location: true,
+      createdById: true,
+    },
   });
 }
 
@@ -555,5 +574,14 @@ export async function listActionItems(input: {
   return db.actionItem.findMany({
     where,
     orderBy: { dueDate: "asc" },
+    select: {
+      id: true,
+      meetingId: true,
+      description: true,
+      assigneeId: true,
+      dueDate: true,
+      status: true,
+      orgId: true,
+    },
   });
 }

@@ -302,15 +302,7 @@ export async function processOutbox() {
   });
 
   for (const entry of entries) {
-    // Transitar para PROCESSING
-    await prisma.notificationOutbox.update({
-      where: { id: entry.id },
-      data: {
-        status: "PROCESSING",
-        lastAttemptAt: new Date(),
-      },
-    });
-
+    // Attempt delivery and update status in a single DB round-trip (no intermediate PROCESSING update)
     try {
       if (entry.channel === "EMAIL") {
         await getResend().emails.send({
@@ -331,6 +323,7 @@ export async function processOutbox() {
         data: {
           status: "DELIVERED",
           deliveredAt: new Date(),
+          lastAttemptAt: new Date(),
         },
       });
     } catch (err) {
@@ -340,6 +333,7 @@ export async function processOutbox() {
         data: {
           status: "FAILED",
           errorMessage: message,
+          lastAttemptAt: new Date(),
           attempts: { increment: 1 },
         },
       });

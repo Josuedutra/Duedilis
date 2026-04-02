@@ -454,6 +454,7 @@ model Meeting {
   @@index([orgId])
   @@index([projectId])
   @@index([scheduledAt])
+  @@index([projectId, scheduledAt])
 }
 
 model MeetingParticipant {
@@ -507,6 +508,7 @@ model ActionItem {
   @@index([meetingId])
   @@index([orgId])
   @@index([assigneeId])
+  @@index([meetingId, dueDate])
 }
 
 // ============================================================
