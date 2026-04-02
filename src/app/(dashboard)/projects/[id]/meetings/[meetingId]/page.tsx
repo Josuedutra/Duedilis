@@ -10,6 +10,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { MeetingEvidenceLinks } from "./meeting-evidence-links";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -206,10 +207,13 @@ export default async function MeetingDetailPage({ params }: Props) {
                         <div className="flex items-center gap-2">
                           {item.dueDate && (
                             <span className="text-xs text-gray-500">
-                              {new Date(item.dueDate).toLocaleDateString("pt-PT", {
-                                day: "numeric",
-                                month: "short",
-                              })}
+                              {new Date(item.dueDate).toLocaleDateString(
+                                "pt-PT",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                },
+                              )}
                             </span>
                           )}
                           <span
@@ -242,11 +246,14 @@ export default async function MeetingDetailPage({ params }: Props) {
               {meeting.minutes?.publishedAt ? (
                 <span className="text-xs text-green-600 font-medium">
                   Publicada em{" "}
-                  {new Date(meeting.minutes.publishedAt).toLocaleDateString("pt-PT", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {new Date(meeting.minutes.publishedAt).toLocaleDateString(
+                    "pt-PT",
+                    {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    },
+                  )}
                 </span>
               ) : (
                 <span className="text-xs text-gray-400">Não publicada</span>
@@ -264,6 +271,15 @@ export default async function MeetingDetailPage({ params }: Props) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Links Probatórios */}
+      <div className="mt-6 bg-white rounded-xl border border-gray-200 p-4">
+        <MeetingEvidenceLinks
+          orgId={project.orgId}
+          projectId={projectId}
+          meetingId={meetingId}
+        />
       </div>
     </div>
   );
