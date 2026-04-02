@@ -10,6 +10,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
+import { sendWhatsAppNotification } from "@/lib/services/notification-whatsapp";
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY ?? "");
@@ -318,8 +319,12 @@ export async function processOutbox() {
           subject: entry.subject ?? "Notificação Duedilis",
           html: entry.body,
         });
+      } else if (entry.channel === "WHATSAPP") {
+        await sendWhatsAppNotification({
+          phone: entry.recipientId,
+          message: entry.body,
+        });
       }
-      // WhatsApp delivery: placeholder (not implemented)
 
       await prisma.notificationOutbox.update({
         where: { id: entry.id },
