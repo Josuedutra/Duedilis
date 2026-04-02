@@ -16,7 +16,8 @@ export type AuditEntityType =
   | "Document"
   | "Approval"
   | "Photo"
-  | "CdeFolder";
+  | "CdeFolder"
+  | "Meeting";
 
 export type AuditAction =
   | "CREATE"
@@ -25,7 +26,11 @@ export type AuditAction =
   | "TRANSITION"
   | "APPROVE"
   | "REJECT"
-  | "CANCEL";
+  | "CANCEL"
+  | "MEETING_CREATE"
+  | "MEETING_CANCEL"
+  | "MEETING_START_EM_CURSO"
+  | "MEETING_END";
 
 export interface CreateAuditEntryInput {
   orgId: string;
