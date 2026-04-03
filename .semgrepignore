@@ -1,0 +1,8 @@
+# Semgrep ignore file
+# Exclude test files and dependencies from SAST scan
+
+__tests__/
+node_modules/
+.next/
+dist/
+coverage/
