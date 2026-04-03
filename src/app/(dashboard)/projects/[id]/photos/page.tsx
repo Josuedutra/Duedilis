@@ -14,14 +14,14 @@ import { PhotoUpload } from "@/components/photos/photo-upload";
 import Link from "next/link";
 
 interface Props {
-  params: Promise<{ projectId: string }>;
+  params: Promise<{ id: string }>;
 }
 
 export default async function ProjectPhotosPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const { projectId } = await params;
+  const { id: projectId } = await params;
 
   const project = await prisma.project.findFirst({
     where: {
