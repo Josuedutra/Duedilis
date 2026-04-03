@@ -1,5 +1,6 @@
 import { signIn, auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { AuthError } from "next-auth";
 
 export default async function LoginPage({
   searchParams,
@@ -13,9 +14,12 @@ export default async function LoginPage({
   const successMsg = params.registered
     ? "Conta criada com sucesso! Faça login para continuar."
     : null;
-  const errorMsg = params.error
-    ? "Email ou password incorretos. Tente novamente."
-    : null;
+  const errorMsg =
+    params.error === "CredentialsSignin"
+      ? "Email ou palavra-passe incorretos."
+      : params.error === "unknown"
+        ? "Ocorreu um erro. Tente novamente."
+        : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -39,11 +43,22 @@ export default async function LoginPage({
         <form
           action={async (formData: FormData) => {
             "use server";
-            await signIn("credentials", {
-              email: formData.get("email"),
-              password: formData.get("password"),
-              redirectTo: "/dashboard",
-            });
+            try {
+              await signIn("credentials", {
+                email: formData.get("email"),
+                password: formData.get("password"),
+                redirectTo: "/dashboard",
+              });
+            } catch (error) {
+              if (error instanceof AuthError) {
+                if (error.type === "CredentialsSignin") {
+                  redirect("/login?error=CredentialsSignin");
+                }
+                redirect("/login?error=unknown");
+              }
+              // NEXT_REDIRECT thrown by Next.js on successful redirect — rethrow
+              throw error;
+            }
           }}
           className="space-y-4"
         >
