@@ -53,7 +53,8 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      /* hasTouch enables .tap() in Desktop Chrome — required by touch.spec.ts */
+      use: { ...devices["Desktop Chrome"], hasTouch: true },
     },
     {
       name: "firefox",

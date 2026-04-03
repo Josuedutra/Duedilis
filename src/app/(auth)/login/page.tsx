@@ -94,7 +94,7 @@ export default async function LoginPage({
           </div>
           <button
             type="submit"
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
           >
             Entrar
           </button>
@@ -103,7 +103,7 @@ export default async function LoginPage({
           Não tem conta?{" "}
           <a
             href="/register"
-            className="font-medium text-blue-600 hover:text-blue-500"
+            className="inline-flex items-center justify-center min-h-[44px] px-2 font-medium text-blue-600 hover:text-blue-500"
           >
             Registar
           </a>
