@@ -8,7 +8,7 @@ export default async function LoginPage({
   searchParams: Promise<{ registered?: string; error?: string }>;
 }) {
   const session = await auth();
-  if (session) redirect("/dashboard");
+  if (session) redirect("/");
 
   const params = await searchParams;
   const successMsg = params.registered
@@ -47,7 +47,7 @@ export default async function LoginPage({
               await signIn("credentials", {
                 email: formData.get("email"),
                 password: formData.get("password"),
-                redirectTo: "/dashboard",
+                redirectTo: "/",
               });
             } catch (error) {
               if (error instanceof AuthError) {
