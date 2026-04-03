@@ -4,17 +4,15 @@ import { defineConfig, devices } from "@playwright/test";
  * Playwright E2E configuration for Duedilis.
  * @see https://playwright.dev/docs/test-configuration
  *
- * DB-dependent tests skip gracefully when DATABASE_URL is not set.
- * Only Lint and Build are required in CI — E2E runs as a separate optional job.
+ * CI provides a real PostgreSQL database for the e2e job.
+ * Tests must NOT skip — if DB is missing, CI fails (correct behaviour).
  */
-
-const hasDatabase = !!process.env.DATABASE_URL;
 
 export default defineConfig({
   testDir: "./e2e",
 
-  /* Global setup: seed DB when DATABASE_URL is available */
-  globalSetup: hasDatabase ? "./e2e/seed.ts" : undefined,
+  /* Global setup: seed DB with E2E fixtures */
+  globalSetup: "./e2e/seed.ts",
 
   /* Run tests in parallel */
   fullyParallel: true,
