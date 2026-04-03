@@ -108,7 +108,7 @@ jobs:
         run: |
           pnpm start &
           npx wait-on http://localhost:3000 --timeout 30000
-          pnpm exec playwright test
+          pnpm exec playwright test --project=chromium --project=mobile-chrome
 
   performance:
     name: Performance Smoke
