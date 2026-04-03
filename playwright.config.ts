@@ -55,6 +55,22 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "firefox",
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+    },
+    {
+      name: "mobile-chrome",
+      use: { ...devices["Pixel 5"] },
+    },
+    {
+      name: "mobile-safari",
+      use: { ...devices["iPhone 13"] },
+    },
   ],
 
   /* Dev server — only start when not in CI (CI provides the URL via PLAYWRIGHT_BASE_URL) */
