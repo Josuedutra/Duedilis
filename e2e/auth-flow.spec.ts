@@ -32,7 +32,7 @@ test.describe("Auth flows", () => {
     await expect(page.getByRole("heading", { name: /dashboard/i })).toBeVisible(
       { timeout: 15_000 },
     );
-    await expect(page.locator("text=Duedilis")).toBeVisible(); // sidebar/header brand
+    await expect(page.locator("text=Duedilis").first()).toBeVisible(); // sidebar/header brand
   });
 
   test("login with wrong password → error message shown", async ({ page }) => {
