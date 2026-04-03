@@ -228,3 +228,129 @@ describe("Auth — Middleware: protecção de /dashboard", () => {
     expect(redirect).toBe("/login?callbackUrl=/dashboard/members");
   });
 });
+
+// ─── JWT callback edge cases ──────────────────────────────────────────────────
+// Task: gov-1775213772090-hro8em (E3-C1)
+// Mirrors jwt callback logic from src/lib/auth.ts verbatim.
+// Uses the existing @/lib/prisma mock defined above.
+
+/**
+ * Mirrors the jwt callback from src/lib/auth.ts.
+ * Accepts same parameter shape as NextAuth jwt callback.
+ */
+async function jwtCallback({
+  token,
+  user,
+  trigger,
+}: {
+  token: Record<string, unknown>;
+  user?: Record<string, unknown> | null;
+  trigger?: string;
+}): Promise<Record<string, unknown>> {
+  const { prisma } = await import("@/lib/prisma");
+
+  // On first sign-in, seed token from user
+  if (user) {
+    token.id = user.id;
+    token.orgId = user.orgId ?? null;
+    token.orgRole = user.orgRole ?? null;
+  }
+
+  // On session update or refresh, re-fetch latest org membership
+  if (trigger === "update" || (!token.orgId && token.id)) {
+    const membership = await prisma.orgMembership.findFirst({
+      where: { userId: token.id as string },
+      orderBy: { updatedAt: "desc" },
+    });
+    token.orgId = membership?.orgId ?? null;
+    token.orgRole = membership?.role ?? null;
+  }
+
+  return token;
+}
+
+describe("Auth — JWT callback: edge cases", () => {
+  // Access the orgMembership.findFirst mock from the existing prisma mock above
+  let mockOrgMembershipFindFirst: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { prisma } = await import("@/lib/prisma");
+    mockOrgMembershipFindFirst = vi.mocked(prisma.orgMembership.findFirst);
+    mockOrgMembershipFindFirst.mockResolvedValue(null);
+  });
+
+  it("user com orgMembership → token.orgId populated no primeiro login", async () => {
+    // user.orgId is set directly from the authorize() return
+    // jwtCallback seeds token from user, then re-fetches (token.orgId=null triggers)
+    mockOrgMembershipFindFirst.mockResolvedValue({
+      orgId: "org1",
+      role: "ADMIN_ORG",
+    });
+
+    const result = await jwtCallback({
+      token: {},
+      user: {
+        id: "u1",
+        email: "user@b.com",
+        orgId: "org1",
+        orgRole: "ADMIN_ORG",
+      },
+    });
+
+    expect(result.id).toBe("u1");
+    expect(result.orgId).toBe("org1");
+    expect(result.orgRole).toBe("ADMIN_ORG");
+  });
+
+  it("user SEM orgMembership → token.orgId null (onboarding flow)", async () => {
+    // findFirst returns null (no membership yet)
+    mockOrgMembershipFindFirst.mockResolvedValue(null);
+
+    const result = await jwtCallback({
+      token: {},
+      user: { id: "u2", email: "novo@b.com", orgId: null, orgRole: null },
+    });
+
+    expect(result.id).toBe("u2");
+    expect(result.orgId).toBeNull();
+    expect(result.orgRole).toBeNull();
+  });
+
+  it("trigger 'update' → re-fetcha membership da DB", async () => {
+    mockOrgMembershipFindFirst.mockResolvedValue({
+      orgId: "org2",
+      role: "MEMBER",
+    });
+
+    const result = await jwtCallback({
+      token: { id: "u3", orgId: "org1", orgRole: "ADMIN_ORG" },
+      trigger: "update",
+    });
+
+    expect(mockOrgMembershipFindFirst).toHaveBeenCalledWith({
+      where: { userId: "u3" },
+      orderBy: { updatedAt: "desc" },
+    });
+    expect(result.orgId).toBe("org2");
+    expect(result.orgRole).toBe("MEMBER");
+  });
+
+  it("token sem orgId mas com id → re-fetcha membership automaticamente", async () => {
+    mockOrgMembershipFindFirst.mockResolvedValue({
+      orgId: "org3",
+      role: "ADMIN_ORG",
+    });
+
+    // Token has id but orgId is null — triggers re-fetch
+    const result = await jwtCallback({
+      token: { id: "u4", orgId: null },
+    });
+
+    expect(mockOrgMembershipFindFirst).toHaveBeenCalledWith({
+      where: { userId: "u4" },
+      orderBy: { updatedAt: "desc" },
+    });
+    expect(result.orgId).toBe("org3");
+  });
+});
