@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Plain CJS seed scripts — not part of the app source
+    "seed_demo.js",
   ]),
 ]);
 

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAs, getTestFixture, isDbAvailable } from "./helpers";
+import { loginAs, getTestFixture } from "./helpers";
 
 /**
  * Duedilis E2E — Fiscal Complete Flow
@@ -13,20 +13,10 @@ import { loginAs, getTestFixture, isDbAvailable } from "./helpers";
  * 6. Meeting creation + participants + minutes publication
  * 7. Evidence link chain: NC ↔ Photo ↔ Document ↔ Meeting
  *
- * Skips gracefully when DATABASE_URL is not configured (CI without secrets).
+ * Requires a real PostgreSQL database. CI provides one via the e2e job.
  */
 
 test.describe("Fiscal complete flow", () => {
-  test.beforeEach(async ({}, testInfo) => {
-    // Skip all tests in this suite when DB is not available
-    if (!isDbAvailable()) {
-      testInfo.skip(
-        true,
-        "E2E_DB_AVAILABLE is false — DATABASE_URL not configured",
-      );
-    }
-  });
-
   test("login → dashboard → project", async ({ page }) => {
     const fixture = getTestFixture();
     await loginAs(page, fixture.fiscalUser.email, fixture.fiscalUser.password);
@@ -210,12 +200,7 @@ test.describe("Fiscal complete flow", () => {
   });
 });
 
-test.describe("Fiscal flow — layout e navegação (sem DB)", () => {
-  /**
-   * These tests verify the app loads correctly without needing a live DB.
-   * They run in all environments (including CI without DATABASE_URL).
-   */
-
+test.describe("Fiscal flow — layout e navegação", () => {
   test("login page carrega correctamente", async ({ page }) => {
     await page.goto("/login");
 
@@ -225,7 +210,7 @@ test.describe("Fiscal flow — layout e navegação (sem DB)", () => {
   });
 
   test("unauthenticated redirect para login", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/");
     await expect(page).toHaveURL(/\/login/);
   });
 

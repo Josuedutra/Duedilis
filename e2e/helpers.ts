@@ -3,8 +3,8 @@ import type { Page } from "@playwright/test";
 /**
  * E2E Helpers for Duedilis fiscal flow tests.
  *
- * All helpers are no-ops when E2E_DB_AVAILABLE !== "true" (DB not configured),
- * allowing the CI pipeline to pass lint/build without a live database.
+ * CI guarantees a real PostgreSQL database is available.
+ * Tests must NOT skip — if DB is missing, CI fails (correct behaviour).
  */
 
 export interface TestFixture {
@@ -17,7 +17,7 @@ export interface TestFixture {
 
 /**
  * Login as a specific user via the Duedilis credentials form.
- * Waits for redirect to /dashboard after successful authentication.
+ * Waits for redirect to / after successful authentication.
  */
 export async function loginAs(
   page: Page,
@@ -29,7 +29,7 @@ export async function loginAs(
   // Password field uses name="password" (not label), find by name
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole("button", { name: /entrar/i }).click();
-  await page.waitForURL("**/dashboard", { timeout: 15_000 });
+  await page.waitForURL("**/", { timeout: 15_000 });
 }
 
 /**
@@ -68,12 +68,4 @@ export async function expectToast(
   await toast.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {
     // Toast may have already dismissed — check for inline success messages
   });
-}
-
-/**
- * Check whether DB is available for this E2E run.
- * Returns false in CI without DATABASE_URL, causing tests to skip.
- */
-export function isDbAvailable(): boolean {
-  return process.env.E2E_DB_AVAILABLE === "true";
 }
