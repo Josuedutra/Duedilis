@@ -1,7 +1,8 @@
 // Duedilis — Prisma Schema v0
 // Módulos 1-3: Auth+Users+Orgs+Projects+Memberships | RBAC+ACL | Issues+Evidence+Comments+Stamps+Close
-// Task: gov-1774993595452-4lllx0
-// Data: 2026-03-31
+// D4: CDE lifecycle, versioning, SLA, staging, links, changes, transmittals
+// Task: gov-1774993595452-4lllx0 / gov-1775322155786-vhvcac
+// Data: 2026-03-31 / 2026-04-04
 // ORM: Prisma
 // DB: PostgreSQL (Neon serverless)
 
@@ -101,6 +102,14 @@ model User {
   evidenceLinksCreated  EvidenceLink[]       @relation("EvidenceLinkCreator")
   notifications         Notification[]       @relation("UserNotifications")
   outboxMessages        NotificationOutbox[] @relation("OutboxRecipient")
+
+  // D4 relations
+  documentRevisions      DocumentRevision[]
+  statusTransitionLogs   StatusTransitionLog[]
+  stagingDocuments       StagingDocument[]
+  documentLinksCreated   DocumentLink[]
+  changeRecordsCreated   ChangeRecord[]
+  transmittalsCreated    Transmittal[]
 }
 
 // Organization = tenant root
@@ -644,6 +653,10 @@ model Document {
   fileSizeBytes Int
   mimeType      String
 
+  // CDE lifecycle (D4)
+  lifecycleStatus     CdeDocStatus @default(WIP)
+  currentRevisionCode String?      // cached: P01, A, B...
+
   // Estado do pipeline de upload
   status DocumentStatus @default(PENDING)
 
@@ -657,13 +670,18 @@ model Document {
   folder   CdeFolder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
   uploader User         @relation(fields: [uploadedById], references: [id])
   batch    UploadBatch? @relation(fields: [batchId], references: [id])
-  approvals Approval[]
+  approvals            Approval[]
+  revisions            DocumentRevision[]
+  statusTransitionLogs StatusTransitionLog[]
+  transmittalDocuments TransmittalDocument[]
+  changeRecords        ChangeRecord[]
 
   @@index([orgId])
   @@index([projectId])
   @@index([folderId])
   @@index([batchId])
   @@index([status])
+  @@index([lifecycleStatus])
   @@index([contentHash, projectId])
   @@index([semanticKey, projectId])
 }
@@ -689,6 +707,204 @@ model SlaRecord {
 
   @@index([orgId])
   @@index([status])
+}
+
+// ============================================================
+// D4: CDE LIFECYCLE — VERSIONING, STAGING, LINKS, CHANGES, TRANSMITTALS
+// ============================================================
+
+// 1. DocumentRevision — versões físicas com revisionCode e checksum
+model DocumentRevision {
+  id            String       @id @default(cuid())
+  orgId         String
+  documentId    String
+  revisionCode  String       // P01, A, B, C01...
+  storageKey    String       // R2 key para esta revisão
+  contentHash   String       // SHA-256 do ficheiro
+  fileSizeBytes Int
+  mimeType      String
+  status        CdeDocStatus @default(WIP)
+  createdById   String
+  createdAt     DateTime     @default(now())
+
+  document         Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy        User              @relation(fields: [createdById], references: [id])
+  validationStamps ValidationStamp[]
+
+  @@index([documentId])
+  @@index([orgId])
+  @@index([status])
+}
+
+// 2. ValidationStamp — stamps por revisão com payloadHash SHA-256 imutável
+model ValidationStamp {
+  id          String   @id @default(cuid())
+  orgId       String
+  revisionId  String
+  stampedById String
+  payloadHash String   // SHA-256 imutável
+  note        String?
+  createdAt   DateTime @default(now())
+
+  revision DocumentRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+
+  @@index([revisionId])
+  @@index([orgId])
+}
+
+// 3. StatusTransitionLog — audit trail de lifecycle transitions (append-only)
+model StatusTransitionLog {
+  id         String       @id @default(cuid())
+  orgId      String
+  documentId String
+  fromStatus CdeDocStatus
+  toStatus   CdeDocStatus
+  userId     String
+  note       String?
+  createdAt  DateTime     @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([documentId])
+  @@index([orgId])
+}
+
+// 4. StagingDocument — quarentena pré-Document
+model StagingDocument {
+  id            String   @id @default(cuid())
+  orgId         String
+  projectId     String
+  folderId      String?
+  originalName  String
+  storageKey    String
+  contentHash   String
+  fileSizeBytes Int
+  mimeType      String
+  uploadedById  String
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+
+  uploader User @relation(fields: [uploadedById], references: [id])
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([uploadedById])
+  @@index([expiresAt])
+}
+
+// 5. DocumentLink — links tipados entre documentos e entidades
+model DocumentLink {
+  id          String   @id @default(cuid())
+  orgId       String
+  sourceType  String   // "Document", "Issue", "Meeting", etc.
+  sourceId    String
+  targetType  String
+  targetId    String
+  linkType    String   // "SUPERSEDES", "REFERENCES", "RELATED", "REPLACES"
+  description String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@index([orgId])
+  @@index([sourceType, sourceId])
+  @@index([targetType, targetId])
+}
+
+// 6. ChangeRecord — ALT/CLM lifecycle
+model ChangeRecord {
+  id              String           @id @default(cuid())
+  orgId           String
+  projectId       String
+  documentId      String?
+  type            ChangeRecordType @default(ALTERATION)
+  status          ChangeStatus     @default(OPEN)
+  title           String
+  description     String?          @db.Text
+  financialImpact Decimal?
+  createdById     String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  document  Document?       @relation(fields: [documentId], references: [id])
+  createdBy User            @relation(fields: [createdById], references: [id])
+  comments  ChangeComment[]
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([documentId])
+  @@index([status])
+}
+
+// 7. ChangeComment — comentários imutáveis em Changes
+model ChangeComment {
+  id             String   @id @default(cuid())
+  orgId          String
+  changeRecordId String
+  content        String   @db.Text
+  authorId       String
+  createdAt      DateTime @default(now())
+
+  changeRecord ChangeRecord @relation(fields: [changeRecordId], references: [id], onDelete: Cascade)
+
+  @@index([changeRecordId])
+  @@index([orgId])
+}
+
+// 8. Transmittal — registos de transmissão
+model Transmittal {
+  id          String            @id @default(cuid())
+  orgId       String
+  projectId   String
+  title       String
+  description String?           @db.Text
+  status      TransmittalStatus @default(DRAFT)
+  sentAt      DateTime?
+  createdById String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  createdBy  User                   @relation(fields: [createdById], references: [id])
+  documents  TransmittalDocument[]
+  recipients TransmittalRecipient[]
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([status])
+}
+
+// 9. TransmittalDocument — docs num transmittal
+model TransmittalDocument {
+  id            String   @id @default(cuid())
+  transmittalId String
+  documentId    String
+  revisionCode  String?
+  note          String?
+  addedAt       DateTime @default(now())
+
+  transmittal Transmittal @relation(fields: [transmittalId], references: [id], onDelete: Cascade)
+  document    Document    @relation(fields: [documentId], references: [id])
+
+  @@unique([transmittalId, documentId])
+  @@index([transmittalId])
+  @@index([documentId])
+}
+
+// 10. TransmittalRecipient — destinatários e receipt status
+model TransmittalRecipient {
+  id            String        @id @default(cuid())
+  transmittalId String
+  name          String
+  email         String
+  receiptStatus ReceiptStatus @default(PENDING)
+  receiptedAt   DateTime?
+  createdAt     DateTime      @default(now())
+
+  transmittal Transmittal @relation(fields: [transmittalId], references: [id], onDelete: Cascade)
+
+  @@index([transmittalId])
 }
 
 // ============================================================
@@ -862,4 +1078,40 @@ enum OutboxStatus {
   PROCESSING
   DELIVERED
   FAILED
+}
+
+// D4 enums
+
+enum CdeDocStatus {
+  WIP
+  SHARED
+  PUBLISHED
+  SUPERSEDED
+  ARCHIVED
+}
+
+enum ChangeRecordType {
+  ALTERATION
+  CLAIM
+}
+
+enum ChangeStatus {
+  OPEN
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum TransmittalStatus {
+  DRAFT
+  SENT
+  ACKNOWLEDGED
+  CANCELLED
+}
+
+enum ReceiptStatus {
+  PENDING
+  RECEIVED
+  REJECTED
 }
