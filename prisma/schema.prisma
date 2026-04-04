@@ -638,6 +638,8 @@ model Document {
   // Storage
   storageKey    String // R2 key: /{orgId}/{projectId}/{folderId}/{docId}/{filename}
   fileHash      String // SHA-256 calculado no client antes do upload, verificado pelo servidor
+  contentHash   String? // SHA-256 recalculado server-side (duplicate detection)
+  semanticKey   String? // {discipline}-{docType}-{zone} para deteção semântica de duplicados
   fileSizeBytes Int
   mimeType      String
 
@@ -661,6 +663,8 @@ model Document {
   @@index([folderId])
   @@index([batchId])
   @@index([status])
+  @@index([contentHash, projectId])
+  @@index([semanticKey, projectId])
 }
 
 // ============================================================

@@ -207,33 +207,28 @@ describe("CDE Duplicate Detection — server recalcula hash (não confia no clie
     vi.clearAllMocks();
   });
 
-  // RED PHASE: server currently trusts client hash — D4-04 must compute hash from fileBuffer
-  // Expected to fail until D4-04 implements server-side hash recomputation.
-  it.fails(
-    "uses hash computed from fileBuffer, not the client-supplied contentHash",
-    async () => {
-      const fileContent = Buffer.from("conteudo-real-do-ficheiro");
-      const serverComputedHash = sha256(fileContent);
-      const maliciousClientHash =
-        "0000000000000000000000000000000000000000000000000000000000000000";
+  it("uses hash computed from fileBuffer, not the client-supplied contentHash", async () => {
+    const fileContent = Buffer.from("conteudo-real-do-ficheiro");
+    const serverComputedHash = sha256(fileContent);
+    const maliciousClientHash =
+      "0000000000000000000000000000000000000000000000000000000000000000";
 
-      mockDocumentFindFirst.mockResolvedValueOnce(null);
-      mockDocumentFindFirst.mockResolvedValueOnce(null);
+    mockDocumentFindFirst.mockResolvedValueOnce(null);
+    mockDocumentFindFirst.mockResolvedValueOnce(null);
 
-      await checkDuplicateDocument({
-        fileBuffer: fileContent,
-        contentHash: maliciousClientHash, // client sends a fake hash
-        semanticKey: "estrutural-corte-piso1",
-        projectId: PROJECT_ID,
-      });
+    await checkDuplicateDocument({
+      fileBuffer: fileContent,
+      contentHash: maliciousClientHash, // client sends a fake hash
+      semanticKey: "estrutural-corte-piso1",
+      projectId: PROJECT_ID,
+    });
 
-      // The first findFirst call (contentHash lookup) should use the SERVER-computed hash
-      // NOT the malicious client-supplied hash
-      const firstCall = mockDocumentFindFirst.mock.calls[0][0];
-      expect(firstCall.where.contentHash).toBe(serverComputedHash);
-      expect(firstCall.where.contentHash).not.toBe(maliciousClientHash);
-    },
-  );
+    // The first findFirst call (contentHash lookup) should use the SERVER-computed hash
+    // NOT the malicious client-supplied hash
+    const firstCall = mockDocumentFindFirst.mock.calls[0][0];
+    expect(firstCall.where.contentHash).toBe(serverComputedHash);
+    expect(firstCall.where.contentHash).not.toBe(maliciousClientHash);
+  });
 
   it("computes SHA-256 hash from fileBuffer bytes consistently", async () => {
     const content = Buffer.from("ficheiro-de-teste-hash-consistente");
