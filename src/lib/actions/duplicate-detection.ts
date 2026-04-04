@@ -1,15 +1,12 @@
-// D4-E3-04: Duplicate Detection — stub implementation
-// Task: gov-1775310295014-592yhw
-//
-// This stub defines the interface for checkDuplicateDocument.
-// Real integration (contentHash + semanticKey fields in Document model) comes in D4-04.
-// Tests in src/__tests__/d4-duplicate.test.ts mock prisma — this file satisfies the import.
+// D4-04: Duplicate Detection — server-side hash recomputation
+// Task: gov-1775322183875-sb9nic
 
+import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 
 export interface DuplicateCheckInput {
   fileBuffer: Buffer;
-  contentHash: string;
+  contentHash: string; // client-supplied hash (ignored — server recomputes)
   semanticKey: string;
   projectId: string;
 }
@@ -19,14 +16,23 @@ export type DuplicateCheckResult =
   | { type: "conflict"; status: 409; existingDocId: string }
   | { type: "clean" };
 
+/**
+ * Check for duplicate documents by server-computed contentHash and semanticKey.
+ * The client-supplied contentHash is ignored — server always recomputes from fileBuffer.
+ */
 export async function checkDuplicateDocument(
   input: DuplicateCheckInput,
 ): Promise<DuplicateCheckResult> {
-  const { contentHash, semanticKey, projectId } = input;
+  const { fileBuffer, semanticKey, projectId } = input;
+
+  // Server recomputes hash — never trust client-supplied hash
+  const serverComputedHash = createHash("sha256")
+    .update(fileBuffer)
+    .digest("hex");
 
   // 1. Check contentHash — same file content → warning (suggest review, don't block)
   const existingByHash = await prisma.document.findFirst({
-    where: { contentHash, projectId },
+    where: { contentHash: serverComputedHash, projectId },
   });
   if (existingByHash) {
     return { type: "warning", existingDocId: existingByHash.id };

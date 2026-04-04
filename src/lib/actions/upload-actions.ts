@@ -13,6 +13,10 @@ import { prisma } from "@/lib/prisma";
 import { createAuditEntry } from "@/lib/services/audit-log";
 import { generatePresignedUploadUrl } from "@/lib/services/r2";
 import { normalizeDocumentName } from "@/lib/services/iso-normalization";
+import {
+  checkDuplicateDocument,
+  type DuplicateCheckResult,
+} from "@/lib/actions/duplicate-detection";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -189,9 +193,32 @@ export async function createIndividualDocument(input: {
   mimeType: string;
   fileSizeBytes: number;
   fileHash: string;
-}): Promise<{ id: string; status: string; batchId: null }> {
+  semanticKey?: string;
+}): Promise<{
+  id: string;
+  status: string;
+  batchId: null;
+  duplicate?: DuplicateCheckResult;
+}> {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado.");
+
+  // Duplicate detection: use fileHash as contentHash proxy (presigned URL flow —
+  // file bytes never pass through server; fileHash is client-computed SHA-256)
+  const hashBuffer = Buffer.from(input.fileHash, "hex");
+  const duplicateResult = await checkDuplicateDocument({
+    fileBuffer: hashBuffer,
+    contentHash: input.fileHash,
+    semanticKey: input.semanticKey ?? "",
+    projectId: input.projectId,
+  });
+
+  // Hard block on semantic conflict (same discipline-docType-zone)
+  if (duplicateResult.type === "conflict") {
+    throw new Error(
+      `409 — Documento duplicado: semanticKey "${input.semanticKey}" já existe (doc ${duplicateResult.existingDocId}).`,
+    );
+  }
 
   const doc = await prisma.document.create({
     data: {
@@ -207,6 +234,8 @@ export async function createIndividualDocument(input: {
         input.fileName,
       ),
       fileHash: input.fileHash,
+      contentHash: input.fileHash,
+      semanticKey: input.semanticKey,
       fileSizeBytes: input.fileSizeBytes,
       mimeType: input.mimeType,
       status: "PENDING",
@@ -229,7 +258,14 @@ export async function createIndividualDocument(input: {
     console.error(`[iso-normalization] failed for doc ${doc.id}:`, err);
   });
 
-  return { id: doc.id, status: doc.status as string, batchId: null };
+  return {
+    id: doc.id,
+    status: doc.status as string,
+    batchId: null,
+    ...(duplicateResult.type === "warning"
+      ? { duplicate: duplicateResult }
+      : {}),
+  };
 }
 
 /**
