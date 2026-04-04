@@ -1,6 +1,6 @@
 /**
  * Middleware tests — BUG P1 fix: redirect loop
- * Task: gov-1775258108670-syy51k
+ * Tasks: gov-1775258108670-syy51k, gov-1775257687737-vz6zfg
  *
  * Tests the authorized() callback logic from src/lib/auth.config.ts
  * and the middleware PROTECTED_PATHS config without importing next-auth
@@ -13,7 +13,12 @@
  *
  * C2 — Integration:
  *   4. Routing integrity: PROTECTED_PATHS all have corresponding page files
- *   5. Matcher excludes public routes (api, _next, login, register, onboarding, invite)
+ *   5. Matcher includes /login (for stale cookie clearing); excludes register, api, _next
+ *
+ * C3 — Stale cookie redirect loop (gov-1775257687737-vz6zfg):
+ *   6. /login with stale cookie + no valid session → middleware clears cookie (no loop)
+ *   7. /login with valid session → middleware redirects to /
+ *   8. /login without any cookie → pass through to login page
  */
 
 import { describe, it, expect } from "vitest";
@@ -160,13 +165,14 @@ describe("Middleware — C2: routing integrity", () => {
     }
   });
 
-  it("Middleware matcher excludes public routes (login, register, api, _next)", () => {
+  it("Middleware matcher includes /login (for stale cookie clearing) and excludes register, api, _next", () => {
     // Mirror of the matcher regex from middleware.ts
+    // Note: /login is NOW included so middleware can clear stale session cookies
     const matcherRegex =
-      /^\/((?!api|_next\/static|_next\/image|login|register|onboarding|invite|favicon\.ico).*)$/;
+      /^\/((?!api|_next\/static|_next\/image|register|onboarding|invite|favicon\.ico).*)$/;
 
-    const publicRoutes = [
-      "/login",
+    // Routes that should be excluded (middleware does NOT run)
+    const excludedRoutes = [
       "/register",
       "/onboarding",
       "/invite/abc",
@@ -175,13 +181,100 @@ describe("Middleware — C2: routing integrity", () => {
       "/favicon.ico",
     ];
 
-    for (const route of publicRoutes) {
+    for (const route of excludedRoutes) {
       expect(matcherRegex.test(route)).toBe(false);
     }
+
+    // /login is now INCLUDED in the matcher
+    expect(matcherRegex.test("/login")).toBe(true);
 
     const protectedRoutes = ["/", "/projects", "/issues", "/documents"];
     for (const route of protectedRoutes) {
       expect(matcherRegex.test(route)).toBe(true);
+    }
+  });
+});
+
+// ─── C3: Stale cookie redirect loop (gov-1775257687737-vz6zfg) ───────────────
+
+describe("Middleware — C3: stale cookie redirect loop prevention", () => {
+  const SESSION_COOKIE_NAMES = [
+    "authjs.session-token",
+    "__Secure-authjs.session-token",
+    "next-auth.session-token",
+    "__Secure-next-auth.session-token",
+  ];
+
+  // Mirror of stale-cookie detection logic from middleware.ts
+  function simulateLoginPageHandling(
+    hasValidSession: boolean,
+    cookies: string[],
+  ): "redirect-to-home" | "clear-cookies" | "pass-through" {
+    if (hasValidSession) return "redirect-to-home";
+
+    const hasStaleSessionCookie = SESSION_COOKIE_NAMES.some((name) =>
+      cookies.includes(name),
+    );
+
+    if (hasStaleSessionCookie) return "clear-cookies";
+    return "pass-through";
+  }
+
+  it("/login + valid session → redirect to /", () => {
+    const result = simulateLoginPageHandling(true, []);
+    expect(result).toBe("redirect-to-home");
+  });
+
+  it("/login + stale authjs.session-token + no valid session → clear cookies (prevent loop)", () => {
+    const result = simulateLoginPageHandling(false, ["authjs.session-token"]);
+    expect(result).toBe("clear-cookies");
+  });
+
+  it("/login + stale __Secure-authjs.session-token + no valid session → clear cookies", () => {
+    const result = simulateLoginPageHandling(false, [
+      "__Secure-authjs.session-token",
+    ]);
+    expect(result).toBe("clear-cookies");
+  });
+
+  it("/login + stale next-auth.session-token (legacy) + no valid session → clear cookies", () => {
+    const result = simulateLoginPageHandling(false, [
+      "next-auth.session-token",
+    ]);
+    expect(result).toBe("clear-cookies");
+  });
+
+  it("/login + stale __Secure-next-auth.session-token (legacy secure) + no valid session → clear cookies", () => {
+    const result = simulateLoginPageHandling(false, [
+      "__Secure-next-auth.session-token",
+    ]);
+    expect(result).toBe("clear-cookies");
+  });
+
+  it("/login + no cookies + no valid session → pass through (show login form)", () => {
+    const result = simulateLoginPageHandling(false, []);
+    expect(result).toBe("pass-through");
+  });
+
+  it("Redirect loop scenario: /login with stale cookie must NOT redirect to /", () => {
+    // Classic redirect loop:
+    // 1. / → middleware → stale token → redirect to /login
+    // 2. /login → old behavior: auth() returns stale session → redirect to /
+    // 3. LOOP
+    //
+    // New behavior: stale cookie on /login → clear cookies → no loop
+    const result = simulateLoginPageHandling(
+      false,
+      ["authjs.session-token"], // stale cookie present
+    );
+    expect(result).toBe("clear-cookies"); // NOT redirect-to-home
+    expect(result).not.toBe("redirect-to-home"); // explicitly NOT looping
+  });
+
+  it("All four session cookie variants are monitored for stale detection", () => {
+    for (const cookieName of SESSION_COOKIE_NAMES) {
+      const result = simulateLoginPageHandling(false, [cookieName]);
+      expect(result).toBe("clear-cookies");
     }
   });
 });

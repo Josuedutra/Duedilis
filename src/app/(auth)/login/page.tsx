@@ -8,7 +8,9 @@ export default async function LoginPage({
   searchParams: Promise<{ registered?: string; error?: string }>;
 }) {
   const session = await auth();
-  if (session) redirect("/");
+  // Only redirect if session has a verified user ID — prevents redirect loops
+  // from stale/partial session objects that lack user data
+  if (session?.user?.id) redirect("/");
 
   const params = await searchParams;
   const successMsg = params.registered
