@@ -86,6 +86,7 @@ model User {
   folderAcls     FolderAcl[]
   auditLogs      AuditLog[]
   documents      Document[]
+  stagingDocuments StagingDocument[]
   uploadBatches  UploadBatch[]
 
   // Approval workflow
@@ -120,6 +121,7 @@ model Organization {
   auditLogs          AuditLog[]
   stamps             Stamp[]
   documents          Document[]
+  stagingDocuments   StagingDocument[]
   uploadBatches      UploadBatch[]
   invites            OrgInvite[]
   approvals          Approval[]
@@ -178,14 +180,15 @@ model Project {
   updatedAt   DateTime      @updatedAt
 
   org           Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  memberships   ProjectMembership[]
-  issues        Issue[]
-  cdeFolders    CdeFolder[]
-  documents     Document[]
-  uploadBatches UploadBatch[]
-  photos        Photo[]
-  meetings      Meeting[]
-  evidenceLinks EvidenceLink[]
+  memberships      ProjectMembership[]
+  issues           Issue[]
+  cdeFolders       CdeFolder[]
+  documents        Document[]
+  stagingDocuments StagingDocument[]
+  uploadBatches    UploadBatch[]
+  photos           Photo[]
+  meetings         Meeting[]
+  evidenceLinks    EvidenceLink[]
 
   @@unique([orgId, slug])
   @@index([orgId])
@@ -230,8 +233,9 @@ model CdeFolder {
   project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   parent    CdeFolder?   @relation("FolderTree", fields: [parentId], references: [id])
   children  CdeFolder[]  @relation("FolderTree")
-  acls      FolderAcl[]
-  documents Document[]
+  acls             FolderAcl[]
+  documents        Document[]
+  stagingDocuments StagingDocument[]
 
   @@index([orgId])
   @@index([projectId])
@@ -665,6 +669,43 @@ model Document {
   @@index([status])
   @@index([contentHash, projectId])
   @@index([semanticKey, projectId])
+}
+
+// ============================================================
+// STAGING AREA — Quarantine lifecycle
+// ============================================================
+
+model StagingDocument {
+  id           String              @id @default(cuid())
+  orgId        String
+  projectId    String
+  folderId     String
+  originalName String
+  isoName      String?
+  discipline   String?
+  docType      String?
+  status       StagingDocumentStatus @default(PENDING)
+  rejectionReason String?
+  uploadedById String
+  uploadedAt   DateTime            @default(now())
+  promotedDocumentId String?       // ID do Document criado no CDE após promoção
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project  Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  folder   CdeFolder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  uploader User         @relation(fields: [uploadedById], references: [id])
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([status])
+}
+
+enum StagingDocumentStatus {
+  PENDING      // Documento recebido, aguarda validação
+  VALIDATING   // Em processo de validação automática
+  READY        // Validação concluída, pronto para promoção
+  PROMOTED     // Promovido para o CDE como Document real
+  REJECTED     // Rejeitado com motivo obrigatório
 }
 
 // ============================================================
