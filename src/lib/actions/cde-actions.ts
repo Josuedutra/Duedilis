@@ -201,7 +201,7 @@ export async function listDocumentsByFolder(input: {
 // ISO 19650 publication lifecycle: WIP → SHARED → PUBLISHED → SUPERSEDED → ARCHIVED
 // Stub — full implementation pending D4 schema migration (CdeDocStatus enum + StatusTransitionLog model)
 
-const CDE_VALID_TRANSITIONS: Record<string, string[]> = {
+export const CDE_VALID_TRANSITIONS: Record<string, string[]> = {
   WIP: ["SHARED"],
   SHARED: ["PUBLISHED", "WIP"],
   PUBLISHED: ["SUPERSEDED"],
@@ -255,4 +255,44 @@ export async function transitionCdeDocLifecycle(input: {
   });
 
   return { id: updated.id, cdeStatus: updated.cdeStatus as string };
+}
+
+// ─── getCdeStatusBadgeConfig ──────────────────────────────────────────────────
+// Maps CdeDocStatus to badge variant + label for the lifecycle badge component.
+
+export interface CdeStatusBadgeConfig {
+  variant: "blue" | "yellow" | "green" | "gray";
+  label: string;
+}
+
+const CDE_STATUS_BADGE_MAP: Record<string, CdeStatusBadgeConfig> = {
+  WIP: { variant: "blue", label: "Em Progresso" },
+  SHARED: { variant: "yellow", label: "Partilhado" },
+  PUBLISHED: { variant: "green", label: "Publicado" },
+  SUPERSEDED: { variant: "gray", label: "Substituído" },
+  ARCHIVED: { variant: "gray", label: "Arquivado" },
+};
+
+export function getCdeStatusBadgeConfig(status: string): CdeStatusBadgeConfig {
+  return CDE_STATUS_BADGE_MAP[status] ?? { variant: "gray", label: status };
+}
+
+// ─── getDocumentDetailData ────────────────────────────────────────────────────
+// Loads document detail data for the detail page.
+
+export async function getDocumentDetailData(input: {
+  documentId: string;
+}): Promise<{
+  document: { id: string; cdeStatus: string; [key: string]: unknown };
+}> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado.");
+
+  const doc = (await prisma.document.findUnique({
+    where: { id: input.documentId },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  })) as any;
+  if (!doc) throw new Error("Documento não encontrado.");
+
+  return { document: doc };
 }
