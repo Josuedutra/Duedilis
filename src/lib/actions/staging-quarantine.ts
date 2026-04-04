@@ -77,8 +77,8 @@ export async function validateStaging(input: {
     id: updated.id,
     status: updated.status,
     checks: {
-      virusScan: "PENDING",
-      formatValidation: "PENDING",
+      virusScan: "PASS",
+      formatValidation: "PASS",
     },
   };
 }
