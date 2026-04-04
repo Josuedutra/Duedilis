@@ -67,3 +67,41 @@ export function suggestMetadataFromFilename(
 ): MetadataSuggestion {
   throw new Error("Not implemented");
 }
+
+// ─── Frontend helpers — badge config and button visibility guards ─────────────
+
+export interface StagingStatusBadgeConfig {
+  variant: "warning" | "default" | "success" | "error";
+  label: string;
+}
+
+const STAGING_STATUS_BADGE_MAP: Record<string, StagingStatusBadgeConfig> = {
+  PENDING: { variant: "warning", label: "Pendente" },
+  VALIDATING: { variant: "default", label: "A validar" },
+  READY: { variant: "success", label: "Pronto" },
+  PROMOTED: { variant: "success", label: "Promovido" },
+  REJECTED: { variant: "error", label: "Rejeitado" },
+};
+
+export function getStagingStatusBadgeConfig(
+  status: string,
+): StagingStatusBadgeConfig {
+  return (
+    STAGING_STATUS_BADGE_MAP[status] ?? { variant: "default", label: status }
+  );
+}
+
+/** Validate button visible only for PENDING documents */
+export function canValidateStaging(status: string): boolean {
+  return status === "PENDING";
+}
+
+/** Promote button visible only for READY documents */
+export function canPromoteStaging(status: string): boolean {
+  return status === "READY";
+}
+
+/** Reject button visible for PENDING, VALIDATING, and READY documents */
+export function canRejectStaging(status: string): boolean {
+  return ["PENDING", "VALIDATING", "READY"].includes(status);
+}
