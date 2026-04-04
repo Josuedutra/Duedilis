@@ -1,12 +1,11 @@
 /**
  * Staging Area Quarantine actions — Sprint D4
- * Task: gov-1775321986183-21c8k1 (D4-E3-06v2)
- *
- * TDD stub — functions are not implemented yet.
- * Tests in src/__tests__/cde/staging-quarantine.test.ts define the expected behaviour.
+ * Task: gov-1775322240095-6ic9an (D4-11v2)
  *
  * Lifecycle: PENDING → VALIDATING → READY → PROMOTED
  */
+
+import { prisma } from "@/lib/prisma";
 
 export interface StagingValidationChecks {
   virusScan: "PASS" | "FAIL" | "PENDING";
@@ -38,34 +37,146 @@ export interface MetadataSuggestion {
 }
 
 export async function createStagingDocument(
-  _input: CreateStagingDocumentInput,
+  input: CreateStagingDocumentInput,
 ): Promise<{ id: string; status: string }> {
-  throw new Error("Not implemented");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const doc = await (prisma as any).stagingDocument.create({
+    data: {
+      originalName: input.originalName,
+      orgId: input.orgId,
+      projectId: input.projectId,
+      folderId: input.folderId,
+      uploadedById: input.uploadedById,
+      status: "PENDING",
+    },
+  });
+  return { id: doc.id, status: doc.status };
 }
 
-export async function validateStaging(_input: {
+export async function validateStaging(input: {
   stagingId: string;
 }): Promise<ValidateStagingResult> {
-  throw new Error("Not implemented");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const doc = await (prisma as any).stagingDocument.findUnique({
+    where: { id: input.stagingId },
+  });
+  if (!doc) throw new Error("Staging document não encontrado.");
+  if (doc.status !== "PENDING") {
+    throw new Error(
+      `Só documentos PENDING podem ser validados. Status actual: ${doc.status}`,
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updated = await (prisma as any).stagingDocument.update({
+    where: { id: input.stagingId },
+    data: { status: "VALIDATING" },
+  });
+
+  return {
+    id: updated.id,
+    status: updated.status,
+    checks: {
+      virusScan: "PENDING",
+      formatValidation: "PENDING",
+    },
+  };
 }
 
-export async function promoteStaging(_input: {
+export async function promoteStaging(input: {
   stagingId: string;
 }): Promise<PromoteStagingResult> {
-  throw new Error("Not implemented");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const doc = await (prisma as any).stagingDocument.findUnique({
+    where: { id: input.stagingId },
+  });
+  if (!doc) throw new Error("Staging document não encontrado.");
+  if (doc.status !== "READY") {
+    throw new Error(
+      `Só documentos READY podem ser promovidos. Status actual: ${doc.status}`,
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (prisma as any).stagingDocument.update({
+    where: { id: input.stagingId },
+    data: { status: "PROMOTED" },
+  });
+
+  const cdeDoc = await prisma.document.create({
+    data: {
+      originalName: doc.originalName,
+      isoName: doc.isoName ?? null,
+      orgId: doc.orgId,
+      projectId: doc.projectId,
+      folderId: doc.folderId,
+      uploadedById: doc.uploadedById,
+      status: "CONFIRMED",
+    },
+  });
+
+  return {
+    stagingStatus: "PROMOTED",
+    cdeDocumentId: cdeDoc.id,
+  };
 }
 
-export async function rejectStaging(_input: {
+export async function rejectStaging(input: {
   stagingId: string;
   reason: string;
 }): Promise<{ id: string; status: string }> {
-  throw new Error("Not implemented");
+  if (!input.reason || input.reason.trim().length === 0) {
+    throw new Error("Motivo de rejeição obrigatório.");
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const doc = await (prisma as any).stagingDocument.findUnique({
+    where: { id: input.stagingId },
+  });
+  if (!doc) throw new Error("Staging document não encontrado.");
+  if (!["PENDING", "VALIDATING", "READY"].includes(doc.status)) {
+    throw new Error(
+      `Documentos em estado ${doc.status} não podem ser rejeitados.`,
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updated = await (prisma as any).stagingDocument.update({
+    where: { id: input.stagingId },
+    data: {
+      status: "REJECTED",
+      rejectionReason: input.reason,
+    },
+  });
+
+  return { id: updated.id, status: updated.status };
 }
 
 export function suggestMetadataFromFilename(
-  _filename: string,
+  filename: string,
 ): MetadataSuggestion {
-  throw new Error("Not implemented");
+  const upper = filename.toUpperCase();
+  const parts = upper.split("-");
+  if (parts.length < 2) return { discipline: null, docType: null };
+
+  const DISCIPLINE_MAP: Record<string, string> = {
+    ARQ: "ARQUITECTURA",
+    EST: "ESTRUTURAL",
+    MEP: "MEP",
+  };
+
+  const DOC_TYPE_MAP: Record<string, string> = {
+    PLT: "PLANTA",
+    ESQ: "ESQUEMA",
+    CRT: "CORTE",
+  };
+
+  const discipline = DISCIPLINE_MAP[parts[0]] ?? null;
+  const docType = DOC_TYPE_MAP[parts[1]] ?? null;
+
+  if (!discipline && !docType) return { discipline: null, docType: null };
+
+  return { discipline, docType };
 }
 
 // ─── Frontend helpers — badge config and button visibility guards ─────────────
