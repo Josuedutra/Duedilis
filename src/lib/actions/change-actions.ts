@@ -1,7 +1,6 @@
-// Change actions — D4-E3-12 stub implementation
-// Tests in src/__tests__/app/changes/page.test.tsx mock prisma.
-// Full ChangeRecord schema migration + integration comes in D4-12.
-// Note: prisma.changeRecord* cast as any — models added in D4-12 migration.
+// Change actions — D4-08v2 implementation
+// Changes & Claims module — lifecycle ALTERATION/CLAIM with financial impact tracking
+// Note: prisma.changeRecord* cast as any — models added in migration.
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -11,18 +10,21 @@ const db = prisma as any;
 
 // ─── Input types ──────────────────────────────────────────────────────────────
 
-export type ChangeType = "DESIGN" | "SCOPE" | "COST" | "SCHEDULE" | "OTHER";
+export type ChangeType = "ALTERATION" | "CLAIM";
 export type ChangeStatus =
   | "DRAFT"
-  | "OPEN"
+  | "SUBMITTED"
   | "UNDER_REVIEW"
   | "APPROVED"
   | "REJECTED"
+  | "FORMALIZED"
   | "CLOSED";
 
 export interface ListChangesInput {
   orgId: string;
   projectId: string;
+  type?: ChangeType;
+  status?: ChangeStatus;
 }
 
 export interface GetChangeDetailInput {
@@ -70,15 +72,17 @@ async function assertMembership(orgId: string) {
 export async function listChanges(input: ListChangesInput) {
   await assertMembership(input.orgId);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: Record<string, any> = {
+    orgId: input.orgId,
+    projectId: input.projectId,
+  };
+  if (input.type) where.type = input.type;
+  if (input.status) where.status = input.status;
+
   return db.changeRecord.findMany({
-    where: {
-      orgId: input.orgId,
-      projectId: input.projectId,
-    },
+    where,
     orderBy: { createdAt: "desc" },
-    include: {
-      author: { select: { id: true, name: true, email: true } },
-    },
   });
 }
 
@@ -128,7 +132,7 @@ export async function createChange(input: CreateChangeInput) {
       description: input.description.trim(),
       type: input.type,
       status: "DRAFT",
-      financialImpact: input.financialImpact ?? null,
+      estimatedCost: input.financialImpact ?? null,
     },
   });
 }
@@ -179,14 +183,16 @@ export function getChangeStatusBadgeConfig(status: string): {
   switch (status) {
     case "DRAFT":
       return { variant: "default", label: "Draft" };
-    case "OPEN":
-      return { variant: "warning", label: "Open" };
+    case "SUBMITTED":
+      return { variant: "warning", label: "Submitted" };
     case "UNDER_REVIEW":
       return { variant: "warning", label: "Under Review" };
     case "APPROVED":
       return { variant: "success", label: "Approved" };
     case "REJECTED":
       return { variant: "error", label: "Rejected" };
+    case "FORMALIZED":
+      return { variant: "success", label: "Formalized" };
     case "CLOSED":
       return { variant: "default", label: "Closed" };
     default:
@@ -196,7 +202,13 @@ export function getChangeStatusBadgeConfig(status: string): {
 
 /** Returns true if a status transition button should be visible */
 export function canTransitionChange(status: string): boolean {
-  return ["DRAFT", "OPEN", "UNDER_REVIEW"].includes(status);
+  return [
+    "DRAFT",
+    "SUBMITTED",
+    "UNDER_REVIEW",
+    "APPROVED",
+    "FORMALIZED",
+  ].includes(status);
 }
 
 /** Returns true if the comment timeline should be shown (immutable) */
