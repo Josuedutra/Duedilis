@@ -33,3 +33,18 @@ export function setSentryContext(ctx: SentryRequestContext): void {
     }
   });
 }
+
+/**
+ * Adds a breadcrumb for API route errors.
+ */
+export function addSentryBreadcrumb(
+  message: string,
+  data?: Record<string, unknown>,
+): void {
+  Sentry.addBreadcrumb({
+    category: "api",
+    message,
+    level: "error",
+    data,
+  });
+}
