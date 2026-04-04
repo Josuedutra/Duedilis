@@ -45,7 +45,7 @@ export async function createDocumentLink(input: CreateDocumentLinkInput) {
     throw new Error("DocumentLink já existe — 409 conflict");
   }
 
-  return db.documentLink.create({
+  const link = await db.documentLink.create({
     data: {
       orgId: input.orgId,
       projectId: input.projectId,
@@ -57,6 +57,16 @@ export async function createDocumentLink(input: CreateDocumentLinkInput) {
       isEvidence: input.isEvidence ?? false,
     },
   });
+
+  // SUPERSEDES side-effect: mark the superseded document (targetId) as SUPERSEDED
+  if (input.linkType === "SUPERSEDES" && input.targetType === "Document") {
+    await db.document.update({
+      where: { id: input.targetId },
+      data: { status: "SUPERSEDED" },
+    });
+  }
+
+  return link;
 }
 
 export async function listLinksFrom(input: ListLinksInput) {
