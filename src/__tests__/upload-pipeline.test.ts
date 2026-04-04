@@ -15,6 +15,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockAuth = vi.hoisted(() => vi.fn());
 const mockDocumentCreate = vi.hoisted(() => vi.fn());
 const mockDocumentFindUnique = vi.hoisted(() => vi.fn());
+const mockDocumentFindFirst = vi.hoisted(() => vi.fn().mockResolvedValue(null));
 const mockDocumentUpdate = vi.hoisted(() => vi.fn());
 const mockDocumentFindMany = vi.hoisted(() => vi.fn());
 const mockDocumentUpdateMany = vi.hoisted(() => vi.fn());
@@ -33,6 +34,7 @@ vi.mock("@/lib/prisma", () => ({
     document: {
       create: mockDocumentCreate,
       findUnique: mockDocumentFindUnique,
+      findFirst: mockDocumentFindFirst,
       update: mockDocumentUpdate,
       findMany: mockDocumentFindMany,
       updateMany: mockDocumentUpdateMany,
