@@ -128,6 +128,7 @@ model Organization {
   evidenceLinks      EvidenceLink[]
   notifications      Notification[]
   notificationOutbox NotificationOutbox[]
+  slaRecords         SlaRecord[]
 }
 
 model OrgMembership {
@@ -665,6 +666,29 @@ model Document {
   @@index([status])
   @@index([contentHash, projectId])
   @@index([semanticKey, projectId])
+}
+
+// ============================================================
+// SLA ENGINE
+// ============================================================
+
+model SlaRecord {
+  id               String    @id @default(cuid())
+  documentId       String?
+  orgId            String
+  projectId        String?
+  startedAt        DateTime  @default(now())
+  deadline         DateTime
+  pausedAt         DateTime?
+  pausedDurationMs Int       @default(0)
+  status           String    @default("ON_TRACK")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([status])
 }
 
 // ============================================================

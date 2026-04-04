@@ -74,7 +74,7 @@ function makeSlaRecord(overrides?: Record<string, unknown>) {
 
 describe("SLA Engine — ON_TRACK when elapsed < 70% of duration", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.useFakeTimers();
   });
 
@@ -126,7 +126,7 @@ describe("SLA Engine — ON_TRACK when elapsed < 70% of duration", () => {
 
 describe("SLA Engine — WARNING when elapsed ≥ 70% of duration", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.useFakeTimers();
   });
 
@@ -166,7 +166,7 @@ describe("SLA Engine — WARNING when elapsed ≥ 70% of duration", () => {
 
 describe("SLA Engine — CRITICAL when elapsed ≥ 90% of duration", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.useFakeTimers();
   });
 
@@ -205,7 +205,7 @@ describe("SLA Engine — CRITICAL when elapsed ≥ 90% of duration", () => {
 
 describe("SLA Engine — BREACHED when elapsed ≥ 100% of duration", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.useFakeTimers();
   });
 
@@ -249,7 +249,7 @@ describe("SLA Engine — BREACHED when elapsed ≥ 100% of duration", () => {
 
 describe("SLA Engine — pauseSla() congela o tempo + resumeSla() retoma", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.useFakeTimers();
   });
 
@@ -341,7 +341,7 @@ describe("SLA Engine — pauseSla() congela o tempo + resumeSla() retoma", () =>
 
 describe("SLA Engine — escalation triggered automatically on BREACHED", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.useFakeTimers();
   });
 
