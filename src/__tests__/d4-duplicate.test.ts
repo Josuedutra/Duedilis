@@ -48,7 +48,7 @@ describe("D4-E3-04: Duplicate Detection — contentHash", () => {
     mockDocumentFindFirst.mockResolvedValueOnce(existingDocById);
 
     const result = await checkDuplicateDocument({
-      fileBuffer: Buffer.from("test content"),
+      fileBuffer: Buffer.from(""), // SHA-256("") === CONTENT_HASH
       contentHash: CONTENT_HASH,
       semanticKey: SEMANTIC_KEY,
       projectId: PROJECT_ID,
@@ -64,7 +64,7 @@ describe("D4-E3-04: Duplicate Detection — contentHash", () => {
     mockDocumentFindFirst.mockResolvedValueOnce(existingDocById);
 
     await checkDuplicateDocument({
-      fileBuffer: Buffer.from("test content"),
+      fileBuffer: Buffer.from(""), // SHA-256("") === CONTENT_HASH
       contentHash: CONTENT_HASH,
       semanticKey: SEMANTIC_KEY,
       projectId: PROJECT_ID,
@@ -191,7 +191,7 @@ describe("D4-E3-04: Duplicate Detection — precedência contentHash > semanticK
     mockDocumentFindFirst.mockResolvedValueOnce(existingDocById);
 
     const result = await checkDuplicateDocument({
-      fileBuffer: Buffer.from("test content"),
+      fileBuffer: Buffer.from(""), // SHA-256("") === CONTENT_HASH
       contentHash: CONTENT_HASH,
       semanticKey: SEMANTIC_KEY,
       projectId: PROJECT_ID,
