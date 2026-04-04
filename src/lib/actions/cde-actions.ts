@@ -196,3 +196,63 @@ export async function listDocumentsByFolder(input: {
     skip: input.offset,
   });
 }
+
+// ─── CDE Document Lifecycle Transitions (D4) ─────────────────────────────────
+// ISO 19650 publication lifecycle: WIP → SHARED → PUBLISHED → SUPERSEDED → ARCHIVED
+// Stub — full implementation pending D4 schema migration (CdeDocStatus enum + StatusTransitionLog model)
+
+const CDE_VALID_TRANSITIONS: Record<string, string[]> = {
+  WIP: ["SHARED"],
+  SHARED: ["PUBLISHED", "WIP"],
+  PUBLISHED: ["SUPERSEDED"],
+  SUPERSEDED: ["ARCHIVED"],
+  ARCHIVED: [],
+};
+
+export async function transitionCdeDocLifecycle(input: {
+  documentId: string;
+  toStatus: string;
+  reason: string;
+}): Promise<{ id: string; cdeStatus: string }> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado.");
+
+  if (!input.reason || input.reason.trim() === "") {
+    throw new Error("reason obrigatório para transições de lifecycle CDE.");
+  }
+
+  const doc = (await prisma.document.findUnique({
+    where: { id: input.documentId },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  })) as any;
+  if (!doc) throw new Error("Documento não encontrado.");
+
+  const currentStatus: string = doc.cdeStatus ?? "WIP";
+  const allowed = CDE_VALID_TRANSITIONS[currentStatus] ?? [];
+
+  if (!allowed.includes(input.toStatus)) {
+    throw new Error(
+      `transição inválida: ${currentStatus} → não permitida para ${input.toStatus}.`,
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updated = await (prisma as any).document.update({
+    where: { id: input.documentId },
+    data: { cdeStatus: input.toStatus },
+  });
+
+  // Append-only audit trail
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (prisma as any).statusTransitionLog.create({
+    data: {
+      documentId: input.documentId,
+      fromStatus: currentStatus,
+      toStatus: input.toStatus,
+      reason: input.reason,
+      userId: session.user.id!,
+    },
+  });
+
+  return { id: updated.id, cdeStatus: updated.cdeStatus as string };
+}
