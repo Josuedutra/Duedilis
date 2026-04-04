@@ -124,6 +124,27 @@ export async function createValidationStamp(input: {
   return stamp as ValidationStamp;
 }
 
+// ─── getValidationStamps ──────────────────────────────────────────────────────
+
+export interface ValidationStampWithType extends ValidationStamp {
+  stampType: string;
+}
+
+export async function getValidationStamps(input: {
+  documentId: string;
+}): Promise<ValidationStampWithType[]> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado.");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const stamps = await (prisma as any).validationStamp.findMany({
+    where: { documentId: input.documentId },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return stamps as ValidationStampWithType[];
+}
+
 // ─── updateValidationStamp — always throws (immutable) ───────────────────────
 
 export async function updateValidationStamp(_input: {
