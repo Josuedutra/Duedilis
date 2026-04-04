@@ -169,3 +169,37 @@ export async function transitionChange(input: TransitionChangeInput) {
     data: { status: input.toStatus },
   });
 }
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+
+export function getChangeStatusBadgeConfig(status: string): {
+  variant: "default" | "warning" | "success" | "error";
+  label: string;
+} {
+  switch (status) {
+    case "DRAFT":
+      return { variant: "default", label: "Draft" };
+    case "OPEN":
+      return { variant: "warning", label: "Open" };
+    case "UNDER_REVIEW":
+      return { variant: "warning", label: "Under Review" };
+    case "APPROVED":
+      return { variant: "success", label: "Approved" };
+    case "REJECTED":
+      return { variant: "error", label: "Rejected" };
+    case "CLOSED":
+      return { variant: "default", label: "Closed" };
+    default:
+      return { variant: "default", label: status };
+  }
+}
+
+/** Returns true if a status transition button should be visible */
+export function canTransitionChange(status: string): boolean {
+  return ["DRAFT", "OPEN", "UNDER_REVIEW"].includes(status);
+}
+
+/** Returns true if the comment timeline should be shown (immutable) */
+export function hasImmutableComments(status: string): boolean {
+  return ["APPROVED", "REJECTED", "CLOSED"].includes(status);
+}

@@ -154,6 +154,43 @@ export async function markReceived(input: MarkReceivedInput) {
   });
 }
 
+export async function listTransmittals(input: {
+  orgId: string;
+  projectId: string;
+}) {
+  await assertMembership(input.orgId);
+
+  return db.transmittal.findMany({
+    where: { orgId: input.orgId, projectId: input.projectId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      _count: { select: { documents: true, recipients: true } },
+    },
+  });
+}
+
+export async function getTransmittalDetail(input: {
+  orgId: string;
+  transmittalId: string;
+}) {
+  await assertMembership(input.orgId);
+
+  const transmittal = await db.transmittal.findUnique({
+    where: { id: input.transmittalId },
+    include: {
+      documents: {
+        include: {
+          document: { select: { id: true, originalName: true, status: true } },
+        },
+      },
+      recipients: true,
+    },
+  });
+
+  if (!transmittal) throw new Error("Transmittal not found — 404");
+  return transmittal;
+}
+
 export async function getTransmittalPresignedUrls(
   input: GetPresignedUrlsInput,
 ) {
@@ -174,4 +211,30 @@ export async function getTransmittalPresignedUrls(
     documentId: doc.documentId,
     url: `https://storage.example.com/presigned/${doc.documentId}?token=stub`,
   }));
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+
+export function getTransmittalStatusBadgeConfig(status: string): {
+  variant: "default" | "warning" | "success" | "error";
+  label: string;
+} {
+  switch (status) {
+    case "DRAFT":
+      return { variant: "default", label: "Draft" };
+    case "SENT":
+      return { variant: "warning", label: "Sent" };
+    case "RECEIVED":
+      return { variant: "success", label: "Received" };
+    default:
+      return { variant: "default", label: status };
+  }
+}
+
+/** Send button visible only for DRAFT transmittals with at least 1 document */
+export function canSendTransmittal(
+  status: string,
+  documentCount: number,
+): boolean {
+  return status === "DRAFT" && documentCount >= 1;
 }
