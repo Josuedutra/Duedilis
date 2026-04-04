@@ -132,7 +132,7 @@ export async function createChange(input: CreateChangeInput) {
       description: input.description.trim(),
       type: input.type,
       status: "DRAFT",
-      estimatedCost: input.financialImpact ?? null,
+      financialImpact: input.financialImpact ?? null,
     },
   });
 }
@@ -183,6 +183,8 @@ export function getChangeStatusBadgeConfig(status: string): {
   switch (status) {
     case "DRAFT":
       return { variant: "default", label: "Draft" };
+    case "OPEN":
+      return { variant: "warning", label: "Open" };
     case "SUBMITTED":
       return { variant: "warning", label: "Submitted" };
     case "UNDER_REVIEW":
@@ -202,13 +204,9 @@ export function getChangeStatusBadgeConfig(status: string): {
 
 /** Returns true if a status transition button should be visible */
 export function canTransitionChange(status: string): boolean {
-  return [
-    "DRAFT",
-    "SUBMITTED",
-    "UNDER_REVIEW",
-    "APPROVED",
-    "FORMALIZED",
-  ].includes(status);
+  return ["DRAFT", "OPEN", "SUBMITTED", "UNDER_REVIEW", "FORMALIZED"].includes(
+    status,
+  );
 }
 
 /** Returns true if the comment timeline should be shown (immutable) */
