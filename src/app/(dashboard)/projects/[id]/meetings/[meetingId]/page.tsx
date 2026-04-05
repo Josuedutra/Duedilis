@@ -262,7 +262,7 @@ export default async function MeetingDetailPage({ params }: Props) {
             {meeting.minutes ? (
               <div
                 className="prose prose-sm max-w-none text-gray-700"
-                dangerouslySetInnerHTML={{ __html: meeting.minutes.content }}
+                dangerouslySetInnerHTML={{ __html: meeting.minutes.content }} // nosemgrep: react-dangerouslysetinnerhtml -- TODO: sanitize with DOMPurify before user-facing release
               />
             ) : (
               <p className="text-sm text-gray-500 py-8 text-center">

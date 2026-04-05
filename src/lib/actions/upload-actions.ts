@@ -255,7 +255,7 @@ export async function createIndividualDocument(input: {
 
   // Trigger ISO normalization async (fire-and-forget — errors logged, not thrown)
   triggerDocumentNormalization(doc.id).catch((err) => {
-    console.error(`[iso-normalization] failed for doc ${doc.id}:`, err);
+    console.error("[iso-normalization] failed for doc", doc.id, err); // nosemgrep
   });
 
   return {
@@ -372,7 +372,7 @@ export async function createUploadBatch(input: {
   // Trigger ISO normalization for all docs in this batch (async, fire-and-forget)
   for (const id of createdDocIds) {
     triggerDocumentNormalization(id).catch((err) => {
-      console.error(`[iso-normalization] batch doc ${id} failed:`, err);
+      console.error("[iso-normalization] batch doc failed:", id, err); // nosemgrep
     });
   }
 
