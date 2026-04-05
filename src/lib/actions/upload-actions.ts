@@ -16,7 +16,7 @@ import { normalizeDocumentName } from "@/lib/services/iso-normalization";
 import {
   checkDuplicateDocument,
   type DuplicateCheckResult,
-} from "@/lib/actions/duplicate-detection";
+} from "@/lib/cde/duplicate-detection";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
