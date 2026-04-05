@@ -15,6 +15,13 @@ import {
   validateStaging,
   promoteStaging,
 } from "@/lib/actions/staging-quarantine";
+import {
+  getStagingStatusBadgeConfig,
+  canValidateStaging,
+  canPromoteStaging,
+  canRejectStaging,
+  suggestMetadataFromFilename,
+} from "@/lib/status-badges";
 import { RejectModal } from "./RejectModal";
 
 interface StagingDocument {

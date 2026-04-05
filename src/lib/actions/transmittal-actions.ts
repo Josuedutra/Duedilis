@@ -217,10 +217,4 @@ export async function getTransmittalPresignedUrls(
 // ─── UI helpers ───────────────────────────────────────────────────────────────
 // getTransmittalStatusBadgeConfig moved to src/lib/status-badges.ts (not a server action)
 
-/** Send button visible only for DRAFT transmittals with at least 1 document */
-export function canSendTransmittal(
-  status: string,
-  documentCount: number,
-): boolean {
-  return status === "DRAFT" && documentCount >= 1;
-}
+// canSendTransmittal moved to src/lib/status-badges.ts

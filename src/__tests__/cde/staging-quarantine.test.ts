@@ -40,8 +40,8 @@ import {
   validateStaging,
   promoteStaging,
   rejectStaging,
-  suggestMetadataFromFilename,
 } from "@/lib/actions/staging-quarantine";
+import { suggestMetadataFromFilename } from "@/lib/status-badges";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 

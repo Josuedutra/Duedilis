@@ -181,15 +181,4 @@ export async function transitionChange(input: TransitionChangeInput) {
 
 // ─── UI helpers ───────────────────────────────────────────────────────────────
 // getChangeStatusBadgeConfig moved to src/lib/status-badges.ts (not a server action)
-
-/** Returns true if a status transition button should be visible */
-export function canTransitionChange(status: string): boolean {
-  return ["DRAFT", "OPEN", "SUBMITTED", "UNDER_REVIEW", "FORMALIZED"].includes(
-    status,
-  );
-}
-
-/** Returns true if the comment timeline should be shown (immutable) */
-export function hasImmutableComments(status: string): boolean {
-  return ["APPROVED", "REJECTED", "CLOSED"].includes(status);
-}
+// canTransitionChange, hasImmutableComments moved to src/lib/status-badges.ts

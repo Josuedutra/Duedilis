@@ -8,7 +8,7 @@ export {
   validateStaging,
   promoteStaging,
   rejectStaging,
-  suggestMetadataFromFilename,
+  // suggestMetadataFromFilename moved to status-badges.ts
 } from "@/lib/actions/staging-quarantine";
 
 export type {

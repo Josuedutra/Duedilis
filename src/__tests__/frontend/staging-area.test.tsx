@@ -41,12 +41,14 @@ import {
   validateStaging,
   promoteStaging,
   rejectStaging,
+} from "@/lib/actions/staging-quarantine";
+import {
   suggestMetadataFromFilename,
   getStagingStatusBadgeConfig,
   canValidateStaging,
   canPromoteStaging,
   canRejectStaging,
-} from "@/lib/actions/staging-quarantine";
+} from "@/lib/status-badges";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
