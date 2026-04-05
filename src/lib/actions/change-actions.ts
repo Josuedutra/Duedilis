@@ -4,6 +4,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { setSentryContext } from "@/lib/sentry-context";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -64,6 +65,9 @@ async function assertMembership(orgId: string) {
   });
 
   if (!membership) throw new Error("Forbidden — sem permissão — 403");
+
+  setSentryContext({ orgId, userId: session.user.id });
+
   return membership;
 }
 
