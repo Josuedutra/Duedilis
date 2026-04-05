@@ -201,13 +201,7 @@ export async function listDocumentsByFolder(input: {
 // ISO 19650 publication lifecycle: WIP → SHARED → PUBLISHED → SUPERSEDED → ARCHIVED
 // Stub — full implementation pending D4 schema migration (CdeDocStatus enum + StatusTransitionLog model)
 
-export const CDE_VALID_TRANSITIONS: Record<string, string[]> = {
-  WIP: ["SHARED"],
-  SHARED: ["PUBLISHED", "WIP"],
-  PUBLISHED: ["SUPERSEDED"],
-  SUPERSEDED: ["ARCHIVED"],
-  ARCHIVED: [],
-};
+// CDE_VALID_TRANSITIONS moved to src/lib/status-badges.ts
 
 export async function transitionCdeDocLifecycle(input: {
   documentId: string;

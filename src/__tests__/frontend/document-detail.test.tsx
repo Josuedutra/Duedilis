@@ -45,10 +45,10 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { getCdeStatusBadgeConfig } from "@/lib/cde-status";
+import { CDE_VALID_TRANSITIONS } from "@/lib/status-badges";
 import {
   transitionCdeDocLifecycle,
   getDocumentDetailData,
-  CDE_VALID_TRANSITIONS,
 } from "@/lib/actions/cde-actions";
 import { getRevisionHistory } from "@/lib/actions/cde-revisions";
 import { getValidationStamps } from "@/lib/actions/cde-revisions";

@@ -102,3 +102,13 @@ export function suggestMetadataFromFilename(filename: string): MetadataSuggestio
   if (!discipline && !docType) return { discipline: null, docType: null };
   return { discipline, docType };
 }
+
+// ─── CDE lifecycle transitions ────────────────────────────────────────────────
+
+export const CDE_VALID_TRANSITIONS: Record<string, string[]> = {
+  WIP: ["SHARED"],
+  SHARED: ["PUBLISHED", "WIP"],
+  PUBLISHED: ["SUPERSEDED"],
+  SUPERSEDED: ["ARCHIVED"],
+  ARCHIVED: [],
+};

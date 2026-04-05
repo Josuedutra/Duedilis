@@ -11,8 +11,8 @@
 
 import { useState, useTransition } from "react";
 import { getCdeStatusBadgeConfig } from "@/lib/cde-status";
+import { CDE_VALID_TRANSITIONS } from "@/lib/status-badges";
 import {
-  CDE_VALID_TRANSITIONS,
   transitionCdeDocLifecycle,
 } from "@/lib/actions/cde-actions";
 

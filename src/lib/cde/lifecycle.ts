@@ -1,3 +1,4 @@
+import { CDE_VALID_TRANSITIONS } from "@/lib/status-badges";
 /**
  * CDE Document Lifecycle — state machine
  * ISO 19650: WIP → SHARED → PUBLISHED → SUPERSEDED → ARCHIVED
@@ -7,5 +8,4 @@
 
 export {
   transitionCdeDocLifecycle,
-  CDE_VALID_TRANSITIONS,
 } from "@/lib/actions/cde-actions";
