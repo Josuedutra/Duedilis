@@ -1,5 +1,7 @@
 "use server";
 
+import { CDE_VALID_TRANSITIONS } from "@/lib/status-badges";
+
 /**
  * CDE actions — Sprint D2
  * Task: gov-1775041228837-pj6dba
