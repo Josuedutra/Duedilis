@@ -1,3 +1,4 @@
+"use server";
 // DocumentLink actions — D4-E3-07 stub implementation
 // Tests in src/__tests__/d4-doc-links.test.ts mock prisma — this satisfies the import.
 // Full DocumentLink schema migration + integration comes in D4-07.

@@ -1,3 +1,4 @@
+"use server";
 /**
  * Staging Area Quarantine actions — Sprint D4
  * Task: gov-1775322240095-6ic9an (D4-11v2)

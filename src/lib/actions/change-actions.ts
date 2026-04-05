@@ -1,3 +1,4 @@
+"use server";
 // Change actions — D4-08v2 implementation
 // Changes & Claims module — lifecycle ALTERATION/CLAIM with financial impact tracking
 // Note: prisma.changeRecord* cast as any — models added in migration.
@@ -179,32 +180,7 @@ export async function transitionChange(input: TransitionChangeInput) {
 }
 
 // ─── UI helpers ───────────────────────────────────────────────────────────────
-
-export function getChangeStatusBadgeConfig(status: string): {
-  variant: "default" | "warning" | "success" | "error";
-  label: string;
-} {
-  switch (status) {
-    case "DRAFT":
-      return { variant: "default", label: "Draft" };
-    case "OPEN":
-      return { variant: "warning", label: "Open" };
-    case "SUBMITTED":
-      return { variant: "warning", label: "Submitted" };
-    case "UNDER_REVIEW":
-      return { variant: "warning", label: "Under Review" };
-    case "APPROVED":
-      return { variant: "success", label: "Approved" };
-    case "REJECTED":
-      return { variant: "error", label: "Rejected" };
-    case "FORMALIZED":
-      return { variant: "success", label: "Formalized" };
-    case "CLOSED":
-      return { variant: "default", label: "Closed" };
-    default:
-      return { variant: "default", label: status };
-  }
-}
+// getChangeStatusBadgeConfig moved to src/lib/status-badges.ts (not a server action)
 
 /** Returns true if a status transition button should be visible */
 export function canTransitionChange(status: string): boolean {

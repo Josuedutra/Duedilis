@@ -1,3 +1,4 @@
+"use server";
 // Transmittal actions — D4-E3-09 stub implementation
 // Tests in src/__tests__/d4-transmittals.test.ts mock prisma — this satisfies the import.
 // Full Transmittal schema migration + integration comes in D4-09.
@@ -214,22 +215,7 @@ export async function getTransmittalPresignedUrls(
 }
 
 // ─── UI helpers ───────────────────────────────────────────────────────────────
-
-export function getTransmittalStatusBadgeConfig(status: string): {
-  variant: "default" | "warning" | "success" | "error";
-  label: string;
-} {
-  switch (status) {
-    case "DRAFT":
-      return { variant: "default", label: "Draft" };
-    case "SENT":
-      return { variant: "warning", label: "Sent" };
-    case "RECEIVED":
-      return { variant: "success", label: "Received" };
-    default:
-      return { variant: "default", label: status };
-  }
-}
+// getTransmittalStatusBadgeConfig moved to src/lib/status-badges.ts (not a server action)
 
 /** Send button visible only for DRAFT transmittals with at least 1 document */
 export function canSendTransmittal(
