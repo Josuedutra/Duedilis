@@ -20,7 +20,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { checkDuplicateDocument } from "@/lib/actions/duplicate-detection";
+import { checkDuplicateDocument } from "@/lib/cde/duplicate-detection";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
