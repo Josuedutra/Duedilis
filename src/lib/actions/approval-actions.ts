@@ -11,6 +11,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createAuditEntry } from "@/lib/services/audit-log";
+import { setSentryContext } from "@/lib/sentry-context";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -22,6 +23,7 @@ export async function submitApproval(input: {
 }): Promise<{ id: string; status: string; submittedById: string }> {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado.");
+  setSentryContext({ orgId: input.orgId, userId: session.user.id });
   const approval = await db.approval.create({
     data: {
       documentId: input.documentId,

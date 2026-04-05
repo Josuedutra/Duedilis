@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { setSentryContext } from "@/lib/sentry-context";
 
 const ALLOWED_ROLES = ["ADMIN_ORG", "GESTOR_PROJETO"] as const;
 
@@ -23,6 +24,8 @@ async function requireOrgRole(orgId: string) {
     throw new Error("Sem permissão para esta operação");
   }
 
+  setSentryContext({ orgId, userId: session.user.id });
+
   return { userId: session.user.id, role: membership.role };
 }
 
@@ -33,7 +36,10 @@ const ProjectSchema = z.object({
     .string()
     .min(1, "Slug obrigatório")
     .max(60)
-    .regex(/^[a-z0-9-]+$/, "Slug só pode conter letras minúsculas, números e hífens"),
+    .regex(
+      /^[a-z0-9-]+$/,
+      "Slug só pode conter letras minúsculas, números e hífens",
+    ),
   description: z.string().max(500).optional(),
   address: z.string().max(200).optional(),
   startDate: z.string().optional(),
@@ -76,7 +82,9 @@ export async function createProject(
     });
     if (existing) {
       return {
-        errors: { slug: ["Já existe um projeto com este slug nesta organização"] },
+        errors: {
+          slug: ["Já existe um projeto com este slug nesta organização"],
+        },
       };
     }
 
@@ -149,7 +157,9 @@ export async function updateProject(
     });
     if (existing) {
       return {
-        errors: { slug: ["Já existe um projeto com este slug nesta organização"] },
+        errors: {
+          slug: ["Já existe um projeto com este slug nesta organização"],
+        },
       };
     }
 
