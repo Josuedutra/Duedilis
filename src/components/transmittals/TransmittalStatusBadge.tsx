@@ -5,7 +5,7 @@
  * Task: gov-1775351727595-0iu0dd (D4-12v2)
  */
 
-import { getTransmittalStatusBadgeConfig } from "@/lib/actions/transmittal-actions";
+import { getTransmittalStatusBadgeConfig } from "@/lib/status-badges";
 
 const VARIANT_CLASSES: Record<string, string> = {
   default: "bg-gray-100 text-gray-600 border border-gray-300",

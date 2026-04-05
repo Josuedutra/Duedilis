@@ -72,7 +72,6 @@ import {
   createChange,
   addChangeComment,
   transitionChange,
-  getChangeStatusBadgeConfig,
   canTransitionChange,
   hasImmutableComments,
 } from "@/lib/actions/change-actions";
@@ -84,9 +83,13 @@ import {
   addDocumentsToTransmittal,
   addRecipientsToTransmittal,
   sendTransmittal,
-  getTransmittalStatusBadgeConfig,
   canSendTransmittal,
 } from "@/lib/actions/transmittal-actions";
+
+import {
+  getChangeStatusBadgeConfig,
+  getTransmittalStatusBadgeConfig,
+} from "@/lib/status-badges";
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 
