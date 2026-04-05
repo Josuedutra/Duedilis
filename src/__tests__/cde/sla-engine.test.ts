@@ -37,10 +37,10 @@ vi.mock("@/lib/prisma", () => ({
 // Import functions under test (do not exist yet — TDD red phase)
 import {
   createSla,
-  getSlaStatus,
+  calculateSlaStatus,
   pauseSla,
   resumeSla,
-} from "@/lib/actions/sla-engine";
+} from "@/lib/cde/sla-engine";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -90,7 +90,7 @@ describe("SLA Engine — ON_TRACK when elapsed < 70% of duration", () => {
     const elapsed50pct = NOW + SLA_DURATION_MS * 0.5;
     vi.setSystemTime(elapsed50pct);
 
-    const result = await getSlaStatus(sla.id);
+    const result = await calculateSlaStatus(sla.id);
 
     expect(result.status).toBe("ON_TRACK");
   });
@@ -143,7 +143,7 @@ describe("SLA Engine — WARNING when elapsed ≥ 70% of duration", () => {
     const elapsed70pct = NOW + SLA_DURATION_MS * 0.7;
     vi.setSystemTime(elapsed70pct);
 
-    const result = await getSlaStatus(sla.id);
+    const result = await calculateSlaStatus(sla.id);
 
     expect(result.status).toBe("WARNING");
   });
@@ -156,7 +156,7 @@ describe("SLA Engine — WARNING when elapsed ≥ 70% of duration", () => {
     const elapsed80pct = NOW + SLA_DURATION_MS * 0.8;
     vi.setSystemTime(elapsed80pct);
 
-    const result = await getSlaStatus(sla.id);
+    const result = await calculateSlaStatus(sla.id);
 
     expect(result.status).toBe("WARNING");
   });
@@ -182,7 +182,7 @@ describe("SLA Engine — CRITICAL when elapsed ≥ 90% of duration", () => {
     const elapsed90pct = NOW + SLA_DURATION_MS * 0.9;
     vi.setSystemTime(elapsed90pct);
 
-    const result = await getSlaStatus(sla.id);
+    const result = await calculateSlaStatus(sla.id);
 
     expect(result.status).toBe("CRITICAL");
   });
@@ -195,7 +195,7 @@ describe("SLA Engine — CRITICAL when elapsed ≥ 90% of duration", () => {
     const elapsed95pct = NOW + SLA_DURATION_MS * 0.95;
     vi.setSystemTime(elapsed95pct);
 
-    const result = await getSlaStatus(sla.id);
+    const result = await calculateSlaStatus(sla.id);
 
     expect(result.status).toBe("CRITICAL");
   });
@@ -222,7 +222,7 @@ describe("SLA Engine — BREACHED when elapsed ≥ 100% of duration", () => {
     const pastDeadline = NOW + SLA_DURATION_MS + 1;
     vi.setSystemTime(pastDeadline);
 
-    const result = await getSlaStatus(sla.id);
+    const result = await calculateSlaStatus(sla.id);
 
     expect(result.status).toBe("BREACHED");
   });
@@ -234,7 +234,7 @@ describe("SLA Engine — BREACHED when elapsed ≥ 100% of duration", () => {
 
     vi.setSystemTime(NOW + SLA_DURATION_MS + 1000);
 
-    await getSlaStatus(sla.id);
+    await calculateSlaStatus(sla.id);
 
     expect(mockSlaRecordUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -330,7 +330,7 @@ describe("SLA Engine — pauseSla() congela o tempo + resumeSla() retoma", () =>
 
     vi.setSystemTime(checkTime);
 
-    const result = await getSlaStatus(pausedSla.id);
+    const result = await calculateSlaStatus(pausedSla.id);
 
     // While paused, time is frozen at 30% elapsed → still ON_TRACK
     expect(result.status).toBe("ON_TRACK");
@@ -357,7 +357,7 @@ describe("SLA Engine — escalation triggered automatically on BREACHED", () => 
 
     vi.setSystemTime(NOW + SLA_DURATION_MS + 1000);
 
-    await getSlaStatus(sla.id);
+    await calculateSlaStatus(sla.id);
 
     expect(mockAuditCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -377,7 +377,7 @@ describe("SLA Engine — escalation triggered automatically on BREACHED", () => 
 
     vi.setSystemTime(NOW + SLA_DURATION_MS * 0.92);
 
-    await getSlaStatus(sla.id);
+    await calculateSlaStatus(sla.id);
 
     expect(mockAuditCreate).not.toHaveBeenCalled();
   });
