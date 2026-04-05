@@ -21,8 +21,9 @@ const PatchStagingSchema = z.discriminatedUnion("action", [
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { stagingId: string } },
+  { params: _params }: { params: Promise<{ stagingId: string }> },
 ) {
+  const params = await _params;
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

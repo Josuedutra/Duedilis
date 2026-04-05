@@ -13,8 +13,9 @@ import {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { docId: string } },
+  { params: _params }: { params: Promise<{ docId: string }> },
 ) {
+  const params = await _params;
   try {
     const revisions = await getRevisionHistory({ documentId: params.docId });
     return NextResponse.json(revisions);
@@ -29,8 +30,9 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { docId: string } },
+  { params: _params }: { params: Promise<{ docId: string }> },
 ) {
+  const params = await _params;
   let body: {
     revisionCode?: string;
     storageKey?: string;

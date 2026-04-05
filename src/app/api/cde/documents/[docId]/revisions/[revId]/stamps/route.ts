@@ -9,8 +9,9 @@ import { createValidationStamp } from "@/lib/cde/stamps";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { docId: string; revId: string } },
+  { params: _params }: { params: Promise<{ docId: string; revId: string }> },
 ) {
+  const params = await _params;
   let body: { payload?: Record<string, unknown> };
 
   try {

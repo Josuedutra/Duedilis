@@ -14,8 +14,9 @@ import { transitionCdeDocLifecycle } from "@/lib/cde/lifecycle";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { docId: string } },
+  { params: _params }: { params: Promise<{ docId: string }> },
 ) {
+  const params = await _params;
   let toStatus: string;
   let reason: string;
 

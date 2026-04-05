@@ -14,8 +14,9 @@ import type { CreateDocumentLinkInput } from "@/lib/cde/document-links";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { docId: string } },
+  { params: _params }: { params: Promise<{ docId: string }> },
 ) {
+  const params = await _params;
   const { searchParams } = new URL(req.url);
   const orgId = searchParams.get("orgId");
 
@@ -40,8 +41,9 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { docId: string } },
+  { params: _params }: { params: Promise<{ docId: string }> },
 ) {
+  const params = await _params;
   let body: Partial<CreateDocumentLinkInput>;
 
   try {
