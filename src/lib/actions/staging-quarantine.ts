@@ -112,6 +112,10 @@ export async function promoteStaging(input: {
       projectId: doc.projectId,
       folderId: doc.folderId,
       uploadedById: doc.uploadedById,
+      storageKey: doc.storageKey,
+      fileHash: doc.contentHash,
+      fileSizeBytes: doc.fileSizeBytes,
+      mimeType: doc.mimeType,
       status: "CONFIRMED",
     },
   });
