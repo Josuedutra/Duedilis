@@ -31,8 +31,10 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-// Import from the NEW path (post-move). These tests fail until the move is done.
-import { calculateSlaStatus } from "@/lib/cde/sla-engine";
+// Import from the CURRENT path for functional tests.
+// Once the production move task runs (actions/ → cde/ + rename getSlaStatus → calculateSlaStatus),
+// this import should be updated to: import { calculateSlaStatus } from "@/lib/cde/sla-engine"
+import { getSlaStatus as calculateSlaStatus } from "@/lib/actions/sla-engine";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
