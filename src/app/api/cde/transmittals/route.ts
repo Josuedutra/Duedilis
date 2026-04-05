@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   const parsed = CreateTransmittalSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Validation error", details: parsed.error.errors },
+      { error: "Validation error", details: parsed.error.issues },
       { status: 400 },
     );
   }
