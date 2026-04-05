@@ -4,7 +4,7 @@
  * SLA Engine — D4-05v2
  * Task: gov-1775322191896-u13dfj
  *
- * createSla, getSlaStatus (pause-aware), pauseSla, resumeSla, escalateSla
+ * createSla, calculateSlaStatus (pause-aware), pauseSla, resumeSla, escalateSla
  */
 
 import { prisma } from "@/lib/prisma";
@@ -64,7 +64,7 @@ export async function createSla(input: {
 }
 
 /** Evaluate current SLA status, persist changes, trigger escalation if BREACHED. */
-export async function getSlaStatus(slaId: string): Promise<SlaRecord> {
+export async function calculateSlaStatus(slaId: string): Promise<SlaRecord> {
   const sla = await prisma.slaRecord.findUnique({ where: { id: slaId } });
   if (!sla) throw new Error(`SlaRecord not found: ${slaId}`);
 

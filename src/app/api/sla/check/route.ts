@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSlaStatus } from "@/lib/actions/sla-engine";
+import { calculateSlaStatus } from "@/lib/cde/sla-engine";
 
 export const runtime = "nodejs";
 
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   });
 
   const results = await Promise.allSettled(
-    activeSlas.map((sla) => getSlaStatus(sla.id)),
+    activeSlas.map((sla) => calculateSlaStatus(sla.id)),
   );
 
   const succeeded = results.filter((r) => r.status === "fulfilled").length;
