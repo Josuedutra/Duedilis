@@ -10,9 +10,9 @@
  */
 
 import { useState, useTransition } from "react";
+import { getCdeStatusBadgeConfig } from "@/lib/cde-status";
 import {
   CDE_VALID_TRANSITIONS,
-  getCdeStatusBadgeConfig,
   transitionCdeDocLifecycle,
 } from "@/lib/actions/cde-actions";
 

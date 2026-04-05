@@ -8,7 +8,7 @@
  *   WIP=blue, SHARED=yellow, PUBLISHED=green, SUPERSEDED=gray, ARCHIVED=gray
  */
 
-import { getCdeStatusBadgeConfig } from "@/lib/actions/cde-actions";
+import { getCdeStatusBadgeConfig } from "@/lib/cde-status";
 
 const VARIANT_CLASSES: Record<string, string> = {
   blue: "bg-blue-100 text-blue-800 border border-blue-300",
